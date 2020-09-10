@@ -1,7 +1,8 @@
 use postgres::Row;
-use serde::Deserialize;
+use zeroize::Zeroize;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Zeroize)]
+#[zeroize(drop)]
 pub struct UserRecord {
     pub id: i32,
     pub name: String,

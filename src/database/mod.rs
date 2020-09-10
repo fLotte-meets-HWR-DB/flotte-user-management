@@ -10,8 +10,10 @@ use std::sync::{Arc, Mutex};
 
 pub mod models;
 pub mod permissions;
+pub mod redis_operations;
 pub mod role_permissions;
 pub mod roles;
+pub mod tokens;
 pub mod user_roles;
 pub mod users;
 
@@ -40,6 +42,7 @@ pub enum Error {
     RecordExists,
     ScryptError,
     DeserializeError(serde_postgres::DeError),
+    GenericError(String),
 }
 
 pub type DatabaseError = Error;

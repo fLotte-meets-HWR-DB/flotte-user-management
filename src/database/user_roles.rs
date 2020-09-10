@@ -1,5 +1,5 @@
 use crate::database::{DatabaseError, DatabaseResult, RedisConnection, Table};
-use postgres::{Client, Error};
+use postgres::Client;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
