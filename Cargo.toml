@@ -8,3 +8,5 @@ edition = "2018"
 
 [dependencies]
 msgrpc = {path = "./msg-rpc"}
+postgres = "0.17.5"
+dotenv = "0.15.0"
