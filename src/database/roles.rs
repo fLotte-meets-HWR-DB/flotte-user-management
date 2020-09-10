@@ -1,5 +1,5 @@
 use crate::database::role_permissions::RolePermissions;
-use crate::database::{DatabaseError, DatabaseResult, Model, RedisConnection};
+use crate::database::{DatabaseError, DatabaseResult, RedisConnection, Table};
 use postgres::{Client, Error};
 use std::sync::{Arc, Mutex};
 
@@ -10,7 +10,7 @@ pub struct Roles {
     role_permission: RolePermissions,
 }
 
-impl Model for Roles {
+impl Table for Roles {
     fn new(
         database_connection: Arc<Mutex<Client>>,
         redis_connection: Arc<Mutex<RedisConnection>>,

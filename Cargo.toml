@@ -9,5 +9,9 @@ edition = "2018"
 [dependencies]
 msgrpc = {path = "./msg-rpc"}
 postgres = "0.17.5"
+serde_postgres = "0.2.0"
 dotenv = "0.15.0"
 redis = "0.17.0"
+serde = {version = "1.0.115", features = ["serde_derive"]}
+rand = "0.7.3"
+scrypt = "0.4.1"

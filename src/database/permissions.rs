@@ -1,4 +1,4 @@
-use crate::database::{DatabaseClient, DatabaseError, DatabaseResult, Model, RedisConnection};
+use crate::database::{DatabaseClient, DatabaseError, DatabaseResult, RedisConnection, Table};
 use postgres::Client;
 use std::sync::{Arc, Mutex};
 
@@ -8,7 +8,7 @@ pub struct Permissions {
     redis_connection: Arc<Mutex<RedisConnection>>,
 }
 
-impl Model for Permissions {
+impl Table for Permissions {
     fn new(
         database_connection: Arc<Mutex<Client>>,
         redis_connection: Arc<Mutex<RedisConnection>>,

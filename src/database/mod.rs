@@ -8,6 +8,7 @@ use postgres::{Client, NoTls};
 use redis::{RedisError, RedisResult};
 use std::sync::{Arc, Mutex};
 
+pub mod models;
 pub mod permissions;
 pub mod role_permissions;
 pub mod roles;
@@ -24,7 +25,7 @@ pub type RedisClient = redis::Client;
 pub type RedisConnection = redis::Connection;
 pub type PostgresError = postgres::Error;
 
-pub trait Model {
+pub trait Table {
     fn new(
         database_connection: Arc<Mutex<DatabaseClient>>,
         redis_connection: Arc<Mutex<RedisConnection>>,
@@ -36,6 +37,9 @@ pub trait Model {
 pub enum Error {
     Redis(RedisError),
     Postgres(PostgresError),
+    RecordExists,
+    ScryptError,
+    DeserializeError(serde_postgres::DeError),
 }
 
 pub type DatabaseError = Error;
