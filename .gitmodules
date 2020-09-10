@@ -1,0 +1,3 @@
+[submodule "msg-rpc"]
+	path = msg-rpc
+	url = git@github.com:flotte-goes-smart/msg-rpc.git
