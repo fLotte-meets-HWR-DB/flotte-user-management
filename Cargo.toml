@@ -10,3 +10,4 @@ edition = "2018"
 msgrpc = {path = "./msg-rpc"}
 postgres = "0.17.5"
 dotenv = "0.15.0"
+redis = "0.17.0"

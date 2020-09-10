@@ -13,14 +13,16 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="db10ba0c-1d72-449d-b24f-24b5a4951941" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/database/permissions.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/database/role_permissions.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/database/roles.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/database/user_roles.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/.env" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/database/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/database/permissions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/permissions.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/database/role_permissions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/role_permissions.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/database/roles.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/roles.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/database/user_roles.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/user_roles.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/database/users.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/database/users.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -91,7 +93,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1599728150675</updated>
-      <workItem from="1599728152100" duration="4301000" />
+      <workItem from="1599728152100" duration="5535000" />
     </task>
     <servers />
   </component>
@@ -103,22 +105,22 @@
       <screen x="0" y="0" width="1920" height="1158" />
     </state>
     <state x="769" y="295" key="#com.intellij.ide.util.MemberChooser/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599732127954" />
-    <state width="1874" height="304" key="GridCell.Tab.0.bottom" timestamp="1599732449376">
+    <state width="1874" height="304" key="GridCell.Tab.0.bottom" timestamp="1599733668118">
       <screen x="0" y="0" width="1920" height="1158" />
     </state>
-    <state width="1874" height="304" key="GridCell.Tab.0.bottom/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599732449376" />
-    <state width="1874" height="304" key="GridCell.Tab.0.center" timestamp="1599732449376">
+    <state width="1874" height="304" key="GridCell.Tab.0.bottom/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599733668118" />
+    <state width="1874" height="304" key="GridCell.Tab.0.center" timestamp="1599733668118">
       <screen x="0" y="0" width="1920" height="1158" />
     </state>
-    <state width="1874" height="304" key="GridCell.Tab.0.center/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599732449376" />
-    <state width="1874" height="304" key="GridCell.Tab.0.left" timestamp="1599732449376">
+    <state width="1874" height="304" key="GridCell.Tab.0.center/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599733668118" />
+    <state width="1874" height="304" key="GridCell.Tab.0.left" timestamp="1599733668118">
       <screen x="0" y="0" width="1920" height="1158" />
     </state>
-    <state width="1874" height="304" key="GridCell.Tab.0.left/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599732449376" />
-    <state width="1874" height="304" key="GridCell.Tab.0.right" timestamp="1599732449376">
+    <state width="1874" height="304" key="GridCell.Tab.0.left/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599733668118" />
+    <state width="1874" height="304" key="GridCell.Tab.0.right" timestamp="1599733668118">
       <screen x="0" y="0" width="1920" height="1158" />
     </state>
-    <state width="1874" height="304" key="GridCell.Tab.0.right/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599732449376" />
+    <state width="1874" height="304" key="GridCell.Tab.0.right/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599733668118" />
     <state x="457" y="211" key="SettingsEditor" timestamp="1599731723387">
       <screen x="0" y="0" width="1920" height="1158" />
     </state>
@@ -131,9 +133,9 @@
       <screen x="0" y="0" width="1920" height="1158" />
     </state>
     <state x="620" y="265" key="run.anything.popup/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599731922994" />
-    <state x="623" y="256" width="672" height="678" key="search.everywhere.popup" timestamp="1599730769441">
+    <state x="623" y="256" width="672" height="678" key="search.everywhere.popup" timestamp="1599732839101">
       <screen x="0" y="0" width="1920" height="1158" />
     </state>
-    <state x="623" y="256" width="672" height="678" key="search.everywhere.popup/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599730769441" />
+    <state x="623" y="256" width="672" height="678" key="search.everywhere.popup/0.0.1920.1158/1920.0.1680.1050@0.0.1920.1158" timestamp="1599732839101" />
   </component>
 </project>
