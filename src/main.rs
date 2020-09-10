@@ -1,6 +1,6 @@
-use flotte_user_management::database::{get_connection, init_database};
+use flotte_user_management::database::Database;
 
 fn main() {
-    let mut client = get_connection().unwrap();
-    init_database(&mut client).unwrap()
+    let database = Database::new().unwrap();
+    database.init().unwrap();
 }

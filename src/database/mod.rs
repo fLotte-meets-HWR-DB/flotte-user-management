@@ -1,45 +1,64 @@
-use postgres::{Client, Error, NoTls};
-pub mod users;
+use crate::database::permissions::Permissions;
+use crate::database::role_permissions::RolePermissions;
+use crate::database::roles::Roles;
+use crate::database::user_roles::UserRoles;
+use crate::database::users::Users;
 use dotenv;
+use postgres::{Client, Error, NoTls};
+use std::sync::{Arc, Mutex};
+
+pub mod permissions;
+pub mod role_permissions;
+pub mod roles;
+pub mod user_roles;
+pub mod users;
 
 const DB_CONNECTION_URL: &str = "POSTGRES_CONNECTION_URL";
 const DEFAULT_CONNECTION: &str = "postgres://postgres:postgres@localhost/postgrees";
 
-/// Returns a database connection
-pub fn get_connection() -> Result<Client, Error> {
-    let conn_url = dotenv::var(DB_CONNECTION_URL).unwrap_or(DEFAULT_CONNECTION.to_string());
-    Client::connect(conn_url.as_str(), NoTls)
+pub trait Model {
+    fn new(connection: Arc<Mutex<Client>>) -> Self;
+    fn init(&self) -> Result<(), Error>;
 }
 
-/// Inits the database
-pub fn init_database(client: &mut Client) -> Result<(), Error> {
-    client.batch_execute("
-        CREATE TABLE IF NOT EXISTS users (
-            id              SERIAL PRIMARY KEY,
-            name            VARCHAR(255) NOT NULL,
-            email           VARCHAR(255) UNIQUE NOT NULL,
-            password_hash   VARCHAR(32) NOT NULL,
-            salt            VARCHAR(16) NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS roles (
-            id              SERIAL PRIMARY KEY,
-            name            VARCHAR(128) UNIQUE NOT NULL,
-            description     VARCHAR(512)
-        );
-        CREATE TABLE IF NOT EXISTS user_roles (
-            user_id         INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-            role_id         INT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-            PRIMARY KEY  (user_id, role_id)
-        );
-        CREATE TABLE IF NOT EXISTS permissions (
-            id              SERIAL PRIMARY KEY,
-            name            VARCHAR(128) UNIQUE NOT NULL,
-            description     VARCHAR(512)
-        );
-        CREATE TABLE IF NOT EXISTS role_permissions (
-            role_id         INT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-            permission_id   INT NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
-            PRIMARY KEY (role_id, permission_id)
-        );
-    ")
+#[derive(Clone)]
+pub struct Database {
+    connection: Arc<Mutex<Client>>,
+    pub users: Users,
+    pub roles: Roles,
+    pub permissions: Permissions,
+    role_permission: RolePermissions,
+    user_roles: UserRoles,
+}
+
+type PostgresResult<T> = Result<T, Error>;
+
+impl Database {
+    pub fn new() -> PostgresResult<Self> {
+        let connection = Arc::new(Mutex::new(get_connection()?));
+        Ok(Self {
+            users: Users::new(Arc::clone(&connection)),
+            roles: Roles::new(Arc::clone(&connection)),
+            permissions: Permissions::new(Arc::clone(&connection)),
+            user_roles: UserRoles::new(Arc::clone(&connection)),
+            role_permission: RolePermissions::new(Arc::clone(&connection)),
+            connection,
+        })
+    }
+
+    /// Inits all database models
+    pub fn init(&self) -> PostgresResult<()> {
+        self.users.init()?;
+        self.roles.init()?;
+        self.permissions.init()?;
+        self.user_roles.init()?;
+        self.role_permission.init()?;
+
+        Ok(())
+    }
+}
+/// Returns a database connection
+fn get_connection() -> Result<Client, Error> {
+    let conn_url = dotenv::var(DB_CONNECTION_URL).unwrap_or(DEFAULT_CONNECTION.to_string());
+    Client::connect(conn_url.as_str(), NoTls)
 }
