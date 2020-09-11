@@ -2,6 +2,7 @@ use colored::Colorize;
 use crossbeam_utils::sync::WaitGroup;
 use env_logger::Env;
 use flotte_user_management::database::Database;
+use flotte_user_management::server::http_server::UserHttpServer;
 use flotte_user_management::server::user_rpc::UserRpcServer;
 use log::Level;
 use std::thread;
@@ -11,11 +12,20 @@ fn main() {
     let database = Database::new().unwrap();
     database.init().unwrap();
     let rpc_server = UserRpcServer::new(&database);
+    let http_server = UserHttpServer::new(&database);
     let wg = WaitGroup::new();
     {
         let wg = WaitGroup::clone(&wg);
         thread::spawn(move || {
             rpc_server.start();
+            std::mem::drop(wg);
+        });
+    }
+    {
+        let wg = WaitGroup::clone(&wg);
+        let http_server = http_server;
+        thread::spawn(move || {
+            http_server.start();
             std::mem::drop(wg);
         });
     }

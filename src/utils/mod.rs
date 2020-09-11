@@ -1,5 +1,7 @@
+use bcrypt::DEFAULT_COST;
 use byteorder::{BigEndian, ByteOrder};
 use rand::Rng;
+use std::panic;
 
 pub mod error;
 
@@ -25,4 +27,13 @@ pub fn create_user_token(user_id: i32) -> [u8; TOKEN_LENGTH] {
 
 pub fn get_user_id_from_token(token: &[u8]) -> i32 {
     BigEndian::read_i32(token)
+}
+
+pub fn hash_password(password: &[u8], salt: &[u8]) -> Result<[u8; 24], String> {
+    panic::catch_unwind(|| {
+        let mut pw_hash = [0u8; 24];
+        bcrypt::bcrypt(DEFAULT_COST, salt, password, &mut pw_hash);
+        Ok(pw_hash)
+    })
+    .map_err(|_| "Hashing failed".to_string())?
 }

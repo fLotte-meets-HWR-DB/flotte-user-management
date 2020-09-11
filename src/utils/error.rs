@@ -8,7 +8,7 @@ pub enum DBError {
     Redis(RedisError),
     Postgres(PostgresError),
     RecordExists,
-    ScryptError,
+    BCryptError,
     DeserializeError(serde_postgres::DeError),
     GenericError(String),
 }
@@ -29,7 +29,7 @@ impl DBError {
             DBError::Postgres(p) => p.to_string(),
             DBError::Redis(r) => r.to_string(),
             DBError::DeserializeError(de) => de.to_string(),
-            DBError::ScryptError => "sCrypt Hash creation error".to_string(),
+            DBError::BCryptError => "BCrypt Hash creation error".to_string(),
         }
     }
 }

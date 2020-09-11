@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
+use zeroize::Zeroize;
 
 #[derive(Deserialize)]
 pub struct TokenRequest {
@@ -73,4 +74,10 @@ pub struct CreateRoleRequest {
 #[derive(Deserialize)]
 pub struct CreatePermissionsRequest {
     pub permissions: Vec<CreatePermissionsEntry>,
+}
+
+#[derive(Deserialize, Zeroize)]
+pub struct LoginMessage {
+    pub email: String,
+    pub password: String,
 }

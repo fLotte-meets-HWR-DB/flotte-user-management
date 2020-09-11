@@ -3,12 +3,13 @@ use crate::utils::create_user_token;
 use crate::utils::error::RedisConnection;
 use byteorder::{BigEndian, ByteOrder};
 use redis::{ErrorKind, RedisError, RedisResult};
+use serde::Serialize;
 use zeroize::Zeroize;
 
-const REQUEST_TOKEN_EXPIRE_SECONDS: usize = 60 * 10;
-const REFRESH_TOKEN_EXPIRE_SECONDS: usize = 60 * 60 * 24;
+const REQUEST_TOKEN_EXPIRE_SECONDS: i32 = 60 * 10;
+const REFRESH_TOKEN_EXPIRE_SECONDS: i32 = 60 * 60 * 24;
 
-#[derive(Clone, Debug, Zeroize)]
+#[derive(Clone, Debug, Zeroize, Serialize)]
 #[zeroize(drop)]
 pub struct SessionTokens {
     pub request_token: [u8; 32],
@@ -22,8 +23,8 @@ impl SessionTokens {
         Self {
             request_token: create_user_token(user_id),
             refresh_token: create_user_token(user_id),
-            request_ttl: -1,
-            refresh_ttl: -1,
+            request_ttl: REQUEST_TOKEN_EXPIRE_SECONDS,
+            refresh_ttl: REFRESH_TOKEN_EXPIRE_SECONDS,
         }
     }
 
@@ -31,8 +32,8 @@ impl SessionTokens {
         Self {
             request_token,
             refresh_token,
-            request_ttl: -1,
-            refresh_ttl: -1,
+            request_ttl: REQUEST_TOKEN_EXPIRE_SECONDS,
+            refresh_ttl: REFRESH_TOKEN_EXPIRE_SECONDS,
         }
     }
 

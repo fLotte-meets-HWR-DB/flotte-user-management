@@ -3,9 +3,9 @@ use crate::database::tokens::SessionTokens;
 use crate::database::user_roles::UserRoles;
 use crate::database::{DatabaseResult, RedisConnection, Table};
 use crate::utils::error::DBError;
-use crate::utils::{create_salt, get_user_id_from_token, TOKEN_LENGTH};
+use crate::utils::{create_salt, get_user_id_from_token, hash_password, TOKEN_LENGTH};
+
 use postgres::Client;
-use scrypt::ScryptParams;
 use std::sync::{Arc, Mutex};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -65,14 +65,8 @@ impl Users {
             return Err(DBError::RecordExists);
         }
         let salt = Zeroizing::new(create_salt());
-        let mut pw_hash = Zeroizing::new([0u8; 32]);
-        scrypt::scrypt(
-            password.as_bytes(),
-            &*salt,
-            &ScryptParams::recommended(),
-            &mut *pw_hash,
-        )
-        .map_err(|_| DBError::ScryptError)?;
+        let pw_hash =
+            hash_password(password.as_bytes(), &*salt).map_err(|e| DBError::GenericError(e))?;
         password.zeroize();
         let row = connection.query_one("
             INSERT INTO users (name, email, password_hash, salt) VALUES ($1, $2, $3, $4) RETURNING *;
@@ -81,17 +75,25 @@ impl Users {
         Ok(UserRecord::from_ordered_row(&row))
     }
 
-    pub fn create_token(&self, email: String, password: String) -> DatabaseResult<SessionTokens> {
+    pub fn create_get_tokens(
+        &self,
+        email: String,
+        password: String,
+    ) -> DatabaseResult<SessionTokens> {
         if self.validate_login(&email, password)? {
             let mut connection = self.database_connection.lock().unwrap();
             let row = connection.query_one("SELECT id FROM users WHERE email = $1", &[&email])?;
             let id: i32 = row.get(0);
             let mut redis_connection = self.redis_connection.lock().unwrap();
 
-            let tokens = SessionTokens::new(id);
-            tokens.store(&mut redis_connection)?;
+            if let Ok(tokens) = SessionTokens::retrieve(id, &mut redis_connection) {
+                Ok(tokens)
+            } else {
+                let tokens = SessionTokens::new(id);
+                tokens.store(&mut redis_connection)?;
 
-            Ok(tokens)
+                Ok(tokens)
+            }
         } else {
             Err(DBError::GenericError("Invalid password".to_string()))
         }
@@ -140,22 +142,20 @@ impl Users {
     fn validate_login(&self, email: &String, password: String) -> DatabaseResult<bool> {
         let password = Zeroizing::new(password);
         let mut connection = self.database_connection.lock().unwrap();
-        let row = connection.query_one(
-            "SELECT password_hash, salt FROM users WHERE email = $1",
-            &[&email],
-        )?;
+        let row = connection
+            .query_opt(
+                "SELECT password_hash, salt FROM users WHERE email = $1",
+                &[&email],
+            )?
+            .ok_or(DBError::GenericError(format!(
+                "No user with the email '{}' found",
+                &email
+            )))?;
         let original_pw_hash: Zeroizing<Vec<u8>> = Zeroizing::new(row.get(0));
         let salt: Zeroizing<Vec<u8>> = Zeroizing::new(row.get(1));
-        let mut pw_hash = Zeroizing::new([0u8; 32]);
+        let pw_hash =
+            hash_password(password.as_bytes(), &*salt).map_err(|e| DBError::GenericError(e))?;
 
-        scrypt::scrypt(
-            password.as_bytes(),
-            &*salt,
-            &ScryptParams::recommended(),
-            &mut *pw_hash,
-        )
-        .map_err(|_| DBError::ScryptError)?;
-
-        Ok(*pw_hash == *original_pw_hash.as_slice())
+        Ok(pw_hash == *original_pw_hash.as_slice())
     }
 }
