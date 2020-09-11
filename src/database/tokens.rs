@@ -202,8 +202,18 @@ impl TokenStore {
 
             self.tokens.get_mut(&user_id).unwrap()
         };
-        let entry = TokenStoreEntry::new(request_token, refresh_token)?;
-        user_tokens.push(entry);
+        if let Some(tokens) = user_tokens.iter_mut().find(|t| {
+            if let Some(token) = t.refresh_token() {
+                &token == refresh_token
+            } else {
+                false
+            }
+        }) {
+            tokens.set_request_token(request_token.clone());
+        } else {
+            let entry = TokenStoreEntry::new(request_token, refresh_token)?;
+            user_tokens.push(entry);
+        }
 
         Ok(())
     }
