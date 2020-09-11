@@ -61,3 +61,10 @@ impl InfoEntry {
 pub struct GetPermissionsRequest {
     pub role_ids: Vec<i32>,
 }
+
+#[derive(Deserialize)]
+pub struct CreateRoleRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub permission: Vec<i32>,
+}

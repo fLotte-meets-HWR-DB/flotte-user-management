@@ -1,6 +1,8 @@
 use super::rpc_methods::*;
 use crate::database::Database;
-use crate::server::messages::{ErrorMessage, GetPermissionsRequest, InfoEntry, TokenRequest};
+use crate::server::messages::{
+    CreateRoleRequest, ErrorMessage, GetPermissionsRequest, InfoEntry, TokenRequest,
+};
 use crate::utils::get_user_id_from_token;
 use msgrpc::message::Message;
 use msgrpc::server::RpcServer;
@@ -41,6 +43,7 @@ impl UserRpcServer {
                 GET_ROLES => self.handle_get_roles(&handler.message.data),
                 VALIDATE_TOKEN => self.handle_validate_token(&handler.message.data),
                 GET_ROLE_PERMISSIONS => self.handle_get_permissions(&handler.message.data),
+                CREATE_ROLE => self.handle_create_role(&handler.message.data),
                 _ => Err(ErrorMessage::new("Invalid Method".to_string())),
             }
             .unwrap_or_else(|e| Message::new_with_serialize(ERROR, e));
@@ -88,6 +91,12 @@ impl UserRpcServer {
                     "Returns all permissions the given roles are assigned to",
                     "{role_ids: [i32]}",
                 ),
+                InfoEntry::new(
+                    "create role",
+                    CREATE_ROLE,
+                    "Creates a new role with the given permissions",
+                    "{name: String, description: String, permissions: [i32]}",
+                ),
             ],
         ))
     }
@@ -126,5 +135,18 @@ impl UserRpcServer {
         let response_data = self.database.user_roles.by_user(user_id)?;
 
         Ok(Message::new_with_serialize(GET_ROLES, response_data))
+    }
+
+    fn handle_create_role(&self, data: &Vec<u8>) -> RpcResult<Message> {
+        log::trace!("Create Role");
+        let message = CreateRoleRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
+            .map_err(|e| ErrorMessage::new(e.to_string()))?;
+        let role = self.database.roles.create_role(
+            message.name,
+            message.description,
+            message.permission,
+        )?;
+
+        Ok(Message::new_with_serialize(CREATE_ROLE, role))
     }
 }

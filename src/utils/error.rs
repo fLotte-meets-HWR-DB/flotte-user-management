@@ -21,6 +21,19 @@ impl Display for DBError {
 
 impl error::Error for DBError {}
 
+impl DBError {
+    pub fn to_string(&self) -> String {
+        match self {
+            DBError::GenericError(g) => g.clone(),
+            DBError::RecordExists => "Record Exists".to_string(),
+            DBError::Postgres(p) => p.to_string(),
+            DBError::Redis(r) => r.to_string(),
+            DBError::DeserializeError(de) => de.to_string(),
+            DBError::ScryptError => "sCrypt Hash creation error".to_string(),
+        }
+    }
+}
+
 pub type DatabaseResult<T> = Result<T, DBError>;
 
 impl From<PostgresError> for DBError {
