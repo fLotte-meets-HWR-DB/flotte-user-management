@@ -1,3 +1,4 @@
+use crate::database::models::CreatePermissionsEntry;
 use crate::utils::error::DBError;
 use serde::export::Formatter;
 use serde::{Deserialize, Serialize};
@@ -67,4 +68,9 @@ pub struct CreateRoleRequest {
     pub name: String,
     pub description: Option<String>,
     pub permission: Vec<i32>,
+}
+
+#[derive(Deserialize)]
+pub struct CreatePermissionsRequest {
+    pub permissions: Vec<CreatePermissionsEntry>,
 }

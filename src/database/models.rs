@@ -37,3 +37,9 @@ pub struct Role {
     pub name: String,
     pub description: String,
 }
+
+#[derive(Deserialize)]
+pub struct CreatePermissionsEntry {
+    pub name: String,
+    pub description: String,
+}

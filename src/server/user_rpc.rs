@@ -1,7 +1,8 @@
 use super::rpc_methods::*;
 use crate::database::Database;
 use crate::server::messages::{
-    CreateRoleRequest, ErrorMessage, GetPermissionsRequest, InfoEntry, TokenRequest,
+    CreatePermissionsRequest, CreateRoleRequest, ErrorMessage, GetPermissionsRequest, InfoEntry,
+    TokenRequest,
 };
 use crate::utils::get_user_id_from_token;
 use msgrpc::message::Message;
@@ -44,6 +45,7 @@ impl UserRpcServer {
                 VALIDATE_TOKEN => self.handle_validate_token(&handler.message.data),
                 GET_ROLE_PERMISSIONS => self.handle_get_permissions(&handler.message.data),
                 CREATE_ROLE => self.handle_create_role(&handler.message.data),
+                CREATE_PERMISSION => self.handle_create_permissions(&handler.message.data),
                 _ => Err(ErrorMessage::new("Invalid Method".to_string())),
             }
             .unwrap_or_else(|e| Message::new_with_serialize(ERROR, e));
@@ -97,6 +99,12 @@ impl UserRpcServer {
                     "Creates a new role with the given permissions",
                     "{name: String, description: String, permissions: [i32]}",
                 ),
+                InfoEntry::new(
+                    "create permissions",
+                    CREATE_PERMISSION,
+                    "Creates all given permissions if they don't exist.",
+                    "{permissions: [{name: String, description: String}]}",
+                ),
             ],
         ))
     }
@@ -148,5 +156,18 @@ impl UserRpcServer {
         )?;
 
         Ok(Message::new_with_serialize(CREATE_ROLE, role))
+    }
+
+    fn handle_create_permissions(&self, data: &Vec<u8>) -> RpcResult<Message> {
+        log::trace!("Create Permission");
+        let message =
+            CreatePermissionsRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
+                .map_err(|e| ErrorMessage::new(e.to_string()))?;
+        let permissions = self
+            .database
+            .permissions
+            .create_permissions(message.permissions)?;
+
+        Ok(Message::new_with_serialize(CREATE_PERMISSION, permissions))
     }
 }
