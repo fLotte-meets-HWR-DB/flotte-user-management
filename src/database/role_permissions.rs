@@ -1,3 +1,4 @@
+use crate::database::models::Permission;
 use crate::database::{DatabaseClient, DatabaseError, DatabaseResult, RedisConnection, Table};
 use std::sync::{Arc, Mutex};
 
@@ -31,5 +32,13 @@ impl Table for RolePermissions {
             );",
             )
             .map_err(|e| DatabaseError::Postgres(e))
+    }
+}
+
+impl RolePermissions {
+    pub fn by_role(&self, role_id: i32) -> DatabaseResult<Vec<Permission>> {
+        let mut connection = self.database_connection.lock().unwrap();
+        let rows = connection.query("SELECT * FROM role_permissions, permissions WHERE role_id = $1 AND role_permissions.permission_id = permissions.id", &[&role_id]).map_err(|e|DatabaseError::Postgres(e))?;
+        serde_postgres::from_rows(&rows).map_err(|e| DatabaseError::DeserializeError(e))
     }
 }

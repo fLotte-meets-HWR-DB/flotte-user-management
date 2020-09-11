@@ -6,6 +6,10 @@ use crate::database::users::Users;
 use dotenv;
 use postgres::{Client, NoTls};
 use redis::{RedisError, RedisResult};
+use serde::export::Formatter;
+use std::error;
+use std::fmt;
+use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 
 pub mod models;
@@ -45,6 +49,14 @@ pub enum Error {
     GenericError(String),
 }
 
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+impl error::Error for Error {}
+
 pub type DatabaseError = Error;
 pub type DatabaseResult<T> = Result<T, Error>;
 
@@ -55,8 +67,8 @@ pub struct Database {
     pub users: Users,
     pub roles: Roles,
     pub permissions: Permissions,
-    role_permission: RolePermissions,
-    user_roles: UserRoles,
+    pub role_permission: RolePermissions,
+    pub user_roles: UserRoles,
 }
 
 impl Database {

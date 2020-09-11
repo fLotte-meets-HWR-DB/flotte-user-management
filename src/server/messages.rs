@@ -45,3 +45,8 @@ impl InfoEntry {
         }
     }
 }
+
+#[derive(Deserialize)]
+pub struct GetPermissionsRequest {
+    pub role_ids: Vec<i32>,
+}

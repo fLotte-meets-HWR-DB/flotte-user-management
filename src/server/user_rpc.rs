@@ -1,10 +1,13 @@
 use super::rpc_methods::*;
 use crate::database::Database;
-use crate::server::messages::{ErrorMessage, InfoEntry, ValidateTokenRequest};
+use crate::server::messages::{
+    ErrorMessage, GetPermissionsRequest, InfoEntry, ValidateTokenRequest,
+};
 use msgrpc::message::Message;
 use msgrpc::server::RpcServer;
 use rmp_serde::Deserializer;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
 
@@ -38,6 +41,7 @@ impl UserRpcServer {
                 INFO => self.handle_info(),
                 GET_ROLES => unimplemented!(),
                 VALIDATE_TOKEN => self.handle_validate_token(&handler.message.data),
+                GET_ROLE_PERMISSIONS => self.handle_get_permissions(&handler.message.data),
                 _ => Err(ErrorMessage::new("Invalid Method".to_string())),
             }
             .unwrap_or_else(|e| Message::new_with_serialize(ERROR, e));
@@ -79,7 +83,33 @@ impl UserRpcServer {
                     "Returns the roles the user is assigned to",
                     "{token: [u8; 32]}",
                 ),
+                InfoEntry::new(
+                    "get permissions",
+                    GET_ROLE_PERMISSIONS,
+                    "Returns all permissions the givenroles are assigned to",
+                    "{role_ids: [i32]}",
+                ),
             ],
+        ))
+    }
+
+    fn handle_get_permissions(&self, data: &Vec<u8>) -> RpcResult<Message> {
+        let message =
+            GetPermissionsRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
+                .map_err(|e| ErrorMessage::new(e.to_string()))?;
+        let mut response_data = HashMap::new();
+        for role_id in message.role_ids {
+            let permissions = self
+                .database
+                .role_permission
+                .by_role(role_id)
+                .map_err(|e| ErrorMessage::new(e.to_string()))?;
+            response_data.insert(role_id.to_string(), permissions);
+        }
+
+        Ok(Message::new_with_serialize(
+            GET_ROLE_PERMISSIONS,
+            response_data,
         ))
     }
 }

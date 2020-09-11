@@ -1,4 +1,5 @@
 use postgres::Row;
+use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
 #[derive(Clone, Debug, Zeroize)]
@@ -21,4 +22,11 @@ impl UserRecord {
             salt: row.get(4),
         }
     }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Permission {
+    pub id: i32,
+    pub name: String,
+    pub description: String,
 }
