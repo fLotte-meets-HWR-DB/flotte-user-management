@@ -25,8 +25,9 @@ pub fn create_user_token(user_id: i32) -> [u8; TOKEN_LENGTH] {
     value
 }
 
-pub fn get_user_id_from_token(token: &[u8]) -> i32 {
-    BigEndian::read_i32(token)
+pub fn get_user_id_from_token(token: &String) -> i32 {
+    let token = base64::decode(&token).unwrap();
+    BigEndian::read_i32(token.as_slice())
 }
 
 pub fn hash_password(password: &[u8], salt: &[u8]) -> Result<[u8; 24], String> {

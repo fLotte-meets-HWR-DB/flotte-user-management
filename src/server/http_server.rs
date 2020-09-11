@@ -1,5 +1,5 @@
 use crate::database::Database;
-use crate::server::messages::LoginMessage;
+use crate::server::messages::{LoginMessage, RefreshMessage};
 use crate::utils::error::DBError;
 use rouille::{Request, Response, Server};
 use serde::export::Formatter;
@@ -60,6 +60,9 @@ impl UserHttpServer {
                 (POST) (/login) => {
                     Self::login(&database, request).unwrap_or_else(|e|Response::text(e.to_string()))
                 },
+                (POST) (/new-token) => {
+                    Self::new_token(&database, request).unwrap_or_else(|e|Response::text(e.to_string()))
+                },
                 _ => Response::empty_404()
             )
         })
@@ -76,7 +79,23 @@ impl UserHttpServer {
                 .map_err(|e| HTTPError::new(e.to_string(), 400))?;
             let tokens = database
                 .users
-                .create_get_tokens(login_request.email, login_request.password)?;
+                .create_get_tokens(&login_request.email, &login_request.password)?;
+
+            Ok(Response::json(&tokens))
+        } else {
+            Err(HTTPError::new("Missing Request Data".to_string(), 400))
+        }
+    }
+
+    fn new_token(database: &Database, request: &Request) -> HTTPResult<Response> {
+        if let Some(mut data) = request.data() {
+            let mut data_string = String::new();
+            data.read_to_string(&mut data_string)
+                .map_err(|_| HTTPError::new("Failed to read request data".to_string(), 500))?;
+            let message: RefreshMessage = serde_json::from_str(data_string.as_str())
+                .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+
+            let tokens = database.users.refresh_tokens(&message.refresh_token)?;
 
             Ok(Response::json(&tokens))
         } else {

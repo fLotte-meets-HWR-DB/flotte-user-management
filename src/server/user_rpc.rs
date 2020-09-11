@@ -79,13 +79,13 @@ impl UserRpcServer {
                     "validate token",
                     VALIDATE_TOKEN,
                     "Validates a request token",
-                    "{token: [u8; 32]}",
+                    "{token: String}",
                 ),
                 InfoEntry::new(
                     "get roles",
                     GET_ROLES,
                     "Returns the roles the user is assigned to",
-                    "{token: [u8; 32]}",
+                    "{token: String}",
                 ),
                 InfoEntry::new(
                     "get permissions",

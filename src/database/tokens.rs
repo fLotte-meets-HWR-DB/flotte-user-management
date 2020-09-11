@@ -1,6 +1,6 @@
 use crate::database::redis_operations::{EX, GET, SET, TTL};
-use crate::utils::create_user_token;
 use crate::utils::error::RedisConnection;
+use crate::utils::{create_user_token, get_user_id_from_token};
 use byteorder::{BigEndian, ByteOrder};
 use redis::{ErrorKind, RedisError, RedisResult};
 use serde::Serialize;
@@ -12,8 +12,8 @@ const REFRESH_TOKEN_EXPIRE_SECONDS: i32 = 60 * 60 * 24;
 #[derive(Clone, Debug, Zeroize, Serialize)]
 #[zeroize(drop)]
 pub struct SessionTokens {
-    pub request_token: [u8; 32],
-    pub refresh_token: [u8; 32],
+    pub request_token: String,
+    pub refresh_token: String,
     pub request_ttl: i32,
     pub refresh_ttl: i32,
 }
@@ -21,14 +21,14 @@ pub struct SessionTokens {
 impl SessionTokens {
     pub fn new(user_id: i32) -> Self {
         Self {
-            request_token: create_user_token(user_id),
-            refresh_token: create_user_token(user_id),
+            request_token: base64::encode(create_user_token(user_id)),
+            refresh_token: base64::encode(create_user_token(user_id)),
             request_ttl: REQUEST_TOKEN_EXPIRE_SECONDS,
             refresh_ttl: REFRESH_TOKEN_EXPIRE_SECONDS,
         }
     }
 
-    pub fn from_tokens(request_token: [u8; 32], refresh_token: [u8; 32]) -> Self {
+    pub fn from_tokens(request_token: String, refresh_token: String) -> Self {
         Self {
             request_token,
             refresh_token,
@@ -39,27 +39,21 @@ impl SessionTokens {
 
     pub fn retrieve(user_id: i32, redis_connection: &mut RedisConnection) -> RedisResult<Self> {
         let redis_request_key = format!("user-{}_request", user_id);
-        let request_token_vec: Vec<u8> = redis::cmd(GET)
+        let request_token: String = redis::cmd(GET)
             .arg(&redis_request_key)
             .query(redis_connection)?;
         let redis_refresh_key = format!("user-{}_refresh", user_id);
-        let refresh_token_vec: Vec<u8> = redis::cmd(GET)
+        let refresh_token: String = redis::cmd(GET)
             .arg(&redis_refresh_key)
             .query(redis_connection)?;
 
-        let mut request_token = [0u8; 32];
-        let mut refresh_token = [0u8; 32];
-        if request_token_vec.len() == 32 {
-            request_token.copy_from_slice(&request_token_vec);
-        } else {
+        if request_token.len() == 0 {
             return Err(RedisError::from((
                 ErrorKind::ResponseError,
                 "No refresh token available",
             )));
         }
-        if refresh_token_vec.len() == 32 {
-            refresh_token.copy_from_slice(&refresh_token_vec);
-        } else {
+        if refresh_token.len() == 0 {
             return Err(RedisError::from((
                 ErrorKind::ResponseError,
                 "No refresh token available",
@@ -81,13 +75,12 @@ impl SessionTokens {
     }
 
     pub fn refresh(&mut self) {
-        self.request_token = create_user_token(self.get_user_id());
-        self.refresh_token = create_user_token(self.get_user_id());
+        self.request_token = base64::encode(create_user_token(self.get_user_id()));
     }
 
     /// Returns the user id that is stored in the first four bytes of the refresh token
     pub fn get_user_id(&self) -> i32 {
-        BigEndian::read_i32(&self.refresh_token[0..4])
+        get_user_id_from_token(&self.refresh_token)
     }
 
     /// Saves the tokens into the database

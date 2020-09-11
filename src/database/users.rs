@@ -77,8 +77,8 @@ impl Users {
 
     pub fn create_get_tokens(
         &self,
-        email: String,
-        password: String,
+        email: &String,
+        password: &String,
     ) -> DatabaseResult<SessionTokens> {
         if self.validate_login(&email, password)? {
             let mut connection = self.database_connection.lock().unwrap();
@@ -99,10 +99,7 @@ impl Users {
         }
     }
 
-    pub fn validate_request_token(
-        &self,
-        token: &[u8; TOKEN_LENGTH],
-    ) -> DatabaseResult<(bool, i32)> {
+    pub fn validate_request_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
         let id = get_user_id_from_token(token);
         let mut redis_connection = self.redis_connection.lock().unwrap();
         let tokens = SessionTokens::retrieve(id, &mut redis_connection)?;
@@ -110,10 +107,7 @@ impl Users {
         Ok((tokens.request_token == *token, tokens.request_ttl))
     }
 
-    pub fn validate_refresh_token(
-        &self,
-        token: &[u8; TOKEN_LENGTH],
-    ) -> DatabaseResult<(bool, i32)> {
+    pub fn validate_refresh_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
         let id = get_user_id_from_token(token);
         let mut redis_connection = self.redis_connection.lock().unwrap();
         let tokens = SessionTokens::retrieve(id, &mut redis_connection)?;
@@ -121,11 +115,8 @@ impl Users {
         Ok((tokens.refresh_token == *token, tokens.refresh_ttl))
     }
 
-    pub fn refresh_tokens(
-        &self,
-        refresh_token: &[u8; TOKEN_LENGTH],
-    ) -> DatabaseResult<SessionTokens> {
-        let id = get_user_id_from_token(refresh_token);
+    pub fn refresh_tokens(&self, refresh_token: &String) -> DatabaseResult<SessionTokens> {
+        let id = get_user_id_from_token(&refresh_token);
         let mut redis_connection = self.redis_connection.lock().unwrap();
         let mut tokens = SessionTokens::retrieve(id, &mut redis_connection)?;
 
@@ -139,8 +130,7 @@ impl Users {
         }
     }
 
-    fn validate_login(&self, email: &String, password: String) -> DatabaseResult<bool> {
-        let password = Zeroizing::new(password);
+    fn validate_login(&self, email: &String, password: &String) -> DatabaseResult<bool> {
         let mut connection = self.database_connection.lock().unwrap();
         let row = connection
             .query_opt(

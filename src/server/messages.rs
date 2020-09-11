@@ -9,7 +9,7 @@ use zeroize::Zeroize;
 
 #[derive(Deserialize)]
 pub struct TokenRequest {
-    pub token: [u8; 32],
+    pub token: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -77,7 +77,14 @@ pub struct CreatePermissionsRequest {
 }
 
 #[derive(Deserialize, Zeroize)]
+#[zeroize(drop)]
 pub struct LoginMessage {
     pub email: String,
     pub password: String,
+}
+
+#[derive(Deserialize, Zeroize)]
+#[zeroize(drop)]
+pub struct RefreshMessage {
+    pub refresh_token: String,
 }
