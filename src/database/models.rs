@@ -30,3 +30,10 @@ pub struct Permission {
     pub name: String,
     pub description: String,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Role {
+    pub id: i32,
+    pub name: String,
+    pub description: String,
+}

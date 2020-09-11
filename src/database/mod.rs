@@ -3,15 +3,15 @@ use crate::database::role_permissions::RolePermissions;
 use crate::database::roles::Roles;
 use crate::database::user_roles::UserRoles;
 use crate::database::users::Users;
+use crate::utils::error::{
+    DBError, DatabaseClient, DatabaseResult, PostgresError, RedisClient, RedisConnection,
+};
 use dotenv;
 use postgres::{Client, NoTls};
-use redis::{RedisError, RedisResult};
-use serde::export::Formatter;
-use std::error;
-use std::fmt;
-use std::fmt::Display;
+use redis::RedisResult;
 use std::sync::{Arc, Mutex};
 
+pub mod database_error;
 pub mod models;
 pub mod permissions;
 pub mod redis_operations;
@@ -26,11 +26,6 @@ const DEFAULT_CONNECTION: &str = "postgres://postgres:postgres@localhost/postgre
 const REDIS_CONNECTION_URL: &str = "REDIS_CONNECTION_URL";
 const DEFAULT_REDIS_CONNECTION: &str = "redis:://127.0.0.1/";
 
-pub type DatabaseClient = postgres::Client;
-pub type RedisClient = redis::Client;
-pub type RedisConnection = redis::Connection;
-pub type PostgresError = postgres::Error;
-
 pub trait Table {
     fn new(
         database_connection: Arc<Mutex<DatabaseClient>>,
@@ -38,27 +33,6 @@ pub trait Table {
     ) -> Self;
     fn init(&self) -> DatabaseResult<()>;
 }
-
-#[derive(Debug)]
-pub enum Error {
-    Redis(RedisError),
-    Postgres(PostgresError),
-    RecordExists,
-    ScryptError,
-    DeserializeError(serde_postgres::DeError),
-    GenericError(String),
-}
-
-impl Display for Error {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
-    }
-}
-
-impl error::Error for Error {}
-
-pub type DatabaseError = Error;
-pub type DatabaseResult<T> = Result<T, Error>;
 
 #[derive(Clone)]
 pub struct Database {
@@ -74,10 +48,10 @@ pub struct Database {
 impl Database {
     pub fn new() -> DatabaseResult<Self> {
         let database_connection = Arc::new(Mutex::new(
-            get_database_connection().map_err(|e| Error::Postgres(e))?,
+            get_database_connection().map_err(|e| DBError::Postgres(e))?,
         ));
         let redis_connection = Arc::new(Mutex::new(
-            get_redis_connection().map_err(|e| Error::Redis(e))?,
+            get_redis_connection().map_err(|e| DBError::Redis(e))?,
         ));
         Ok(Self {
             users: Users::new(

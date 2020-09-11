@@ -1,4 +1,6 @@
-use crate::database::{DatabaseError, DatabaseResult, RedisConnection, Table};
+use crate::database::models::Role;
+use crate::database::{DatabaseResult, RedisConnection, Table};
+use crate::utils::error::DBError;
 use postgres::Client;
 use std::sync::{Arc, Mutex};
 
@@ -31,6 +33,18 @@ impl Table for UserRoles {
             PRIMARY KEY  (user_id, role_id)
         );",
             )
-            .map_err(|e| DatabaseError::Postgres(e))
+            .map_err(DBError::from)
+    }
+}
+
+impl UserRoles {
+    pub fn by_user(&self, user_id: i32) -> DatabaseResult<Vec<Role>> {
+        let mut connection = self.database_connection.lock().unwrap();
+        let rows = connection.query(
+            "SELECT * FROM user_roles, roles WHERE user_id = $1 AND roles.id = user_roles.role_id",
+            &[&user_id],
+        )?;
+
+        serde_postgres::from_rows(&rows).map_err(DBError::from)
     }
 }

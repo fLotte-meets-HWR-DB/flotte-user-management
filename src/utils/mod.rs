@@ -1,6 +1,8 @@
 use byteorder::{BigEndian, ByteOrder};
 use rand::Rng;
 
+pub mod error;
+
 pub const TOKEN_LENGTH: usize = 32;
 const SALT_LENGTH: usize = 16;
 

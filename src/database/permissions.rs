@@ -1,4 +1,5 @@
-use crate::database::{DatabaseClient, DatabaseError, DatabaseResult, RedisConnection, Table};
+use crate::database::{DatabaseClient, DatabaseResult, RedisConnection, Table};
+use crate::utils::error::DBError;
 use postgres::Client;
 use std::sync::{Arc, Mutex};
 
@@ -30,6 +31,6 @@ impl Table for Permissions {
                         description     VARCHAR(512)
                     );",
             )
-            .map_err(|e| DatabaseError::Postgres(e))
+            .map_err(DBError::from)
     }
 }

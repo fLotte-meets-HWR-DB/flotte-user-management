@@ -1,5 +1,6 @@
 use crate::database::role_permissions::RolePermissions;
-use crate::database::{DatabaseError, DatabaseResult, RedisConnection, Table};
+use crate::database::{DatabaseResult, RedisConnection, Table};
+use crate::utils::error::DBError;
 use postgres::Client;
 use std::sync::{Arc, Mutex};
 
@@ -37,6 +38,6 @@ impl Table for Roles {
             description     VARCHAR(512)
         );",
             )
-            .map_err(|e| DatabaseError::Postgres(e))
+            .map_err(DBError::from)
     }
 }

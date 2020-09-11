@@ -1,8 +1,7 @@
 use super::rpc_methods::*;
 use crate::database::Database;
-use crate::server::messages::{
-    ErrorMessage, GetPermissionsRequest, InfoEntry, ValidateTokenRequest,
-};
+use crate::server::messages::{ErrorMessage, GetPermissionsRequest, InfoEntry, TokenRequest};
+use crate::utils::get_user_id_from_token;
 use msgrpc::message::Message;
 use msgrpc::server::RpcServer;
 use rmp_serde::Deserializer;
@@ -39,7 +38,7 @@ impl UserRpcServer {
             let mut handler = h.lock().unwrap();
             let response = match handler.message.method {
                 INFO => self.handle_info(),
-                GET_ROLES => unimplemented!(),
+                GET_ROLES => self.handle_get_roles(&handler.message.data),
                 VALIDATE_TOKEN => self.handle_validate_token(&handler.message.data),
                 GET_ROLE_PERMISSIONS => self.handle_get_permissions(&handler.message.data),
                 _ => Err(ErrorMessage::new("Invalid Method".to_string())),
@@ -52,14 +51,13 @@ impl UserRpcServer {
 
     fn handle_validate_token(&self, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Validating token.");
-        let message =
-            ValidateTokenRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
-                .map_err(|e| ErrorMessage::new(e.to_string()))?;
+        let message = TokenRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
+            .map_err(|e| ErrorMessage::new(e.to_string()))?;
         let valid = self
             .database
             .users
             .validate_request_token(&message.token)
-            .unwrap_or(false);
+            .unwrap_or((false, -1));
         log::trace!("Serializing...");
         let data = rmp_serde::to_vec(&valid).map_err(|e| ErrorMessage::new(e.to_string()))?;
 
@@ -67,6 +65,7 @@ impl UserRpcServer {
     }
 
     fn handle_info(&self) -> RpcResult<Message> {
+        log::trace!("Get Info");
         Ok(Message::new_with_serialize(
             INFO,
             vec![
@@ -86,7 +85,7 @@ impl UserRpcServer {
                 InfoEntry::new(
                     "get permissions",
                     GET_ROLE_PERMISSIONS,
-                    "Returns all permissions the givenroles are assigned to",
+                    "Returns all permissions the given roles are assigned to",
                     "{role_ids: [i32]}",
                 ),
             ],
@@ -94,16 +93,13 @@ impl UserRpcServer {
     }
 
     fn handle_get_permissions(&self, data: &Vec<u8>) -> RpcResult<Message> {
+        log::trace!("Get Permissions");
         let message =
             GetPermissionsRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
                 .map_err(|e| ErrorMessage::new(e.to_string()))?;
         let mut response_data = HashMap::new();
         for role_id in message.role_ids {
-            let permissions = self
-                .database
-                .role_permission
-                .by_role(role_id)
-                .map_err(|e| ErrorMessage::new(e.to_string()))?;
+            let permissions = self.database.role_permission.by_role(role_id)?;
             response_data.insert(role_id.to_string(), permissions);
         }
 
@@ -111,5 +107,24 @@ impl UserRpcServer {
             GET_ROLE_PERMISSIONS,
             response_data,
         ))
+    }
+
+    fn handle_get_roles(&self, data: &Vec<u8>) -> RpcResult<Message> {
+        log::trace!("Get Roles");
+        let message = TokenRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
+            .map_err(|e| ErrorMessage::new(e.to_string()))?;
+        if !self
+            .database
+            .users
+            .validate_request_token(&message.token)
+            .unwrap_or((false, -1))
+            .0
+        {
+            return Err(ErrorMessage::new("Invalid request token".to_string()));
+        }
+        let user_id = get_user_id_from_token(&message.token);
+        let response_data = self.database.user_roles.by_user(user_id)?;
+
+        Ok(Message::new_with_serialize(GET_ROLES, response_data))
     }
 }
