@@ -152,7 +152,7 @@ impl UserRpcServer {
         let role = self.database.roles.create_role(
             message.name,
             message.description,
-            message.permission,
+            message.permissions,
         )?;
 
         Ok(Message::new_with_serialize(CREATE_ROLE, role))

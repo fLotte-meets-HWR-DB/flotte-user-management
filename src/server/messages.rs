@@ -67,7 +67,7 @@ pub struct GetPermissionsRequest {
 pub struct CreateRoleRequest {
     pub name: String,
     pub description: Option<String>,
-    pub permission: Vec<i32>,
+    pub permissions: Vec<i32>,
 }
 
 #[derive(Deserialize)]
