@@ -1,11 +1,9 @@
-use redis::RedisError;
 use serde_postgres::DeError;
 use std::error;
 use std::fmt::{self, Display, Formatter};
 
 #[derive(Debug)]
 pub enum DBError {
-    Redis(RedisError),
     Postgres(PostgresError),
     RecordExists,
     BCryptError,
@@ -27,7 +25,6 @@ impl DBError {
             DBError::GenericError(g) => g.clone(),
             DBError::RecordExists => "Record Exists".to_string(),
             DBError::Postgres(p) => p.to_string(),
-            DBError::Redis(r) => r.to_string(),
             DBError::DeserializeError(de) => de.to_string(),
             DBError::BCryptError => "BCrypt Hash creation error".to_string(),
         }
@@ -42,19 +39,17 @@ impl From<PostgresError> for DBError {
     }
 }
 
-impl From<RedisError> for DBError {
-    fn from(other: RedisError) -> Self {
-        Self::Redis(other)
-    }
-}
-
 impl From<serde_postgres::DeError> for DBError {
     fn from(other: DeError) -> Self {
         Self::DeserializeError(other)
     }
 }
 
+impl From<String> for DBError {
+    fn from(other: String) -> Self {
+        Self::GenericError(other)
+    }
+}
+
 pub type DatabaseClient = postgres::Client;
-pub type RedisClient = redis::Client;
-pub type RedisConnection = redis::Connection;
 pub type PostgresError = postgres::Error;

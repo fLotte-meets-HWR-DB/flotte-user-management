@@ -1,5 +1,5 @@
 use crate::database::models::{CreatePermissionsEntry, Permission};
-use crate::database::{DatabaseClient, DatabaseResult, RedisConnection, Table};
+use crate::database::{DatabaseClient, DatabaseResult, Table};
 use crate::utils::error::DBError;
 use postgres::Client;
 use std::sync::{Arc, Mutex};
@@ -7,17 +7,12 @@ use std::sync::{Arc, Mutex};
 #[derive(Clone)]
 pub struct Permissions {
     database_connection: Arc<Mutex<DatabaseClient>>,
-    redis_connection: Arc<Mutex<RedisConnection>>,
 }
 
 impl Table for Permissions {
-    fn new(
-        database_connection: Arc<Mutex<Client>>,
-        redis_connection: Arc<Mutex<RedisConnection>>,
-    ) -> Self {
+    fn new(database_connection: Arc<Mutex<Client>>) -> Self {
         Self {
             database_connection,
-            redis_connection,
         }
     }
 

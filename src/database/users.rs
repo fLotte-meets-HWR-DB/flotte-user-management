@@ -1,9 +1,9 @@
 use crate::database::models::UserRecord;
-use crate::database::tokens::SessionTokens;
+use crate::database::tokens::{SessionTokens, TokenStore};
 use crate::database::user_roles::UserRoles;
-use crate::database::{DatabaseResult, RedisConnection, Table};
+use crate::database::{DatabaseResult, Table};
 use crate::utils::error::DBError;
-use crate::utils::{create_salt, get_user_id_from_token, hash_password, TOKEN_LENGTH};
+use crate::utils::{create_salt, hash_password};
 
 use postgres::Client;
 use std::sync::{Arc, Mutex};
@@ -12,22 +12,16 @@ use zeroize::{Zeroize, Zeroizing};
 #[derive(Clone)]
 pub struct Users {
     database_connection: Arc<Mutex<Client>>,
-    redis_connection: Arc<Mutex<RedisConnection>>,
     user_roles: UserRoles,
+    token_store: Arc<Mutex<TokenStore>>,
 }
 
 impl Table for Users {
-    fn new(
-        database_connection: Arc<Mutex<Client>>,
-        redis_connection: Arc<Mutex<RedisConnection>>,
-    ) -> Self {
+    fn new(database_connection: Arc<Mutex<Client>>) -> Self {
         Self {
-            user_roles: UserRoles::new(
-                Arc::clone(&database_connection),
-                Arc::clone(&redis_connection),
-            ),
+            user_roles: UserRoles::new(Arc::clone(&database_connection)),
             database_connection,
-            redis_connection,
+            token_store: Arc::new(Mutex::new(TokenStore::new())),
         }
     }
 
@@ -75,7 +69,7 @@ impl Users {
         Ok(UserRecord::from_ordered_row(&row))
     }
 
-    pub fn create_get_tokens(
+    pub fn create_tokens(
         &self,
         email: &String,
         password: &String,
@@ -84,45 +78,44 @@ impl Users {
             let mut connection = self.database_connection.lock().unwrap();
             let row = connection.query_one("SELECT id FROM users WHERE email = $1", &[&email])?;
             let id: i32 = row.get(0);
-            let mut redis_connection = self.redis_connection.lock().unwrap();
 
-            if let Ok(tokens) = SessionTokens::retrieve(id, &mut redis_connection) {
-                Ok(tokens)
-            } else {
-                let tokens = SessionTokens::new(id);
-                tokens.store(&mut redis_connection)?;
+            let tokens = SessionTokens::new(id);
+            tokens.store(&mut self.token_store.lock().unwrap())?;
 
-                Ok(tokens)
-            }
+            Ok(tokens)
         } else {
             Err(DBError::GenericError("Invalid password".to_string()))
         }
     }
 
     pub fn validate_request_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
-        let id = get_user_id_from_token(token);
-        let mut redis_connection = self.redis_connection.lock().unwrap();
-        let tokens = SessionTokens::retrieve(id, &mut redis_connection)?;
+        let store = self.token_store.lock().unwrap();
+        let entry = store.get_request_token(&token);
 
-        Ok((tokens.request_token == *token, tokens.request_ttl))
+        if let Some(entry) = entry {
+            Ok((true, entry.request_ttl()))
+        } else {
+            Ok((false, -1))
+        }
     }
 
     pub fn validate_refresh_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
-        let id = get_user_id_from_token(token);
-        let mut redis_connection = self.redis_connection.lock().unwrap();
-        let tokens = SessionTokens::retrieve(id, &mut redis_connection)?;
+        let store = self.token_store.lock().unwrap();
+        let entry = store.get_refresh_token(&token);
 
-        Ok((tokens.refresh_token == *token, tokens.refresh_ttl))
+        if let Some(entry) = entry {
+            Ok((true, entry.refresh_ttl()))
+        } else {
+            Ok((false, -1))
+        }
     }
 
     pub fn refresh_tokens(&self, refresh_token: &String) -> DatabaseResult<SessionTokens> {
-        let id = get_user_id_from_token(&refresh_token);
-        let mut redis_connection = self.redis_connection.lock().unwrap();
-        let mut tokens = SessionTokens::retrieve(id, &mut redis_connection)?;
-
-        if tokens.refresh_token == *refresh_token {
+        let mut token_store = self.token_store.lock().unwrap();
+        let tokens = token_store.get_refresh_token(refresh_token);
+        if let Some(mut tokens) = tokens.and_then(|t| SessionTokens::from_entry(t)) {
             tokens.refresh();
-            tokens.store(&mut redis_connection)?;
+            tokens.store(&mut token_store)?;
 
             Ok(tokens)
         } else {

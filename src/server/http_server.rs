@@ -17,7 +17,7 @@ pub struct UserHttpServer {
 #[derive(Debug)]
 pub struct HTTPError {
     message: String,
-    code: usize,
+    code: u16,
 }
 
 impl Display for HTTPError {
@@ -36,8 +36,14 @@ impl From<DBError> for HTTPError {
     }
 }
 
+impl Into<Response> for HTTPError {
+    fn into(self) -> Response {
+        Response::text(self.message).with_status_code(self.code)
+    }
+}
+
 impl HTTPError {
-    pub fn new(message: String, code: usize) -> Self {
+    pub fn new(message: String, code: u16) -> Self {
         Self { message, code }
     }
 }
@@ -58,10 +64,10 @@ impl UserHttpServer {
         let server = Server::new(listen_address, move |request| {
             router!(request,
                 (POST) (/login) => {
-                    Self::login(&database, request).unwrap_or_else(|e|Response::text(e.to_string()))
+                    Self::login(&database, request).unwrap_or_else(|e|e.into())
                 },
                 (POST) (/new-token) => {
-                    Self::new_token(&database, request).unwrap_or_else(|e|Response::text(e.to_string()))
+                    Self::new_token(&database, request).unwrap_or_else(|e|e.into())
                 },
                 _ => Response::empty_404()
             )
@@ -79,7 +85,7 @@ impl UserHttpServer {
                 .map_err(|e| HTTPError::new(e.to_string(), 400))?;
             let tokens = database
                 .users
-                .create_get_tokens(&login_request.email, &login_request.password)?;
+                .create_tokens(&login_request.email, &login_request.password)?;
 
             Ok(Response::json(&tokens))
         } else {

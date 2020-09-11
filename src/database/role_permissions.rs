@@ -1,22 +1,17 @@
 use crate::database::models::Permission;
-use crate::database::{DatabaseClient, DatabaseResult, RedisConnection, Table};
+use crate::database::{DatabaseClient, DatabaseResult, Table};
 use crate::utils::error::DBError;
 use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct RolePermissions {
     database_connection: Arc<Mutex<DatabaseClient>>,
-    redis_connection: Arc<Mutex<RedisConnection>>,
 }
 
 impl Table for RolePermissions {
-    fn new(
-        database_connection: Arc<Mutex<DatabaseClient>>,
-        redis_connection: Arc<Mutex<RedisConnection>>,
-    ) -> Self {
+    fn new(database_connection: Arc<Mutex<DatabaseClient>>) -> Self {
         Self {
             database_connection,
-            redis_connection,
         }
     }
 
