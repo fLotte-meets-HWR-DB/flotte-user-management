@@ -2,6 +2,7 @@ use postgres::Row;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
+/// Record to store data in when retrieving rows from the users table
 #[derive(Clone, Debug, Zeroize)]
 #[zeroize(drop)]
 pub struct UserRecord {
@@ -24,6 +25,8 @@ impl UserRecord {
     }
 }
 
+/// A row of the permission table that can be serialized and sent
+/// via the rcp connection
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Permission {
     pub id: i32,
@@ -31,6 +34,8 @@ pub struct Permission {
     pub description: String,
 }
 
+/// A row of the role table that can be serialized and sent
+/// via the rcp connection
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Role {
     pub id: i32,
@@ -38,6 +43,9 @@ pub struct Role {
     pub description: String,
 }
 
+/// A CreatePermissionEntry data structure that is used as an argument for the
+/// bulk permission creation function of the Users Model and can directly be deserialized
+/// from the corresponding rcp message.
 #[derive(Deserialize)]
 pub struct CreatePermissionsEntry {
     pub name: String,

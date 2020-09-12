@@ -8,6 +8,7 @@ pub mod error;
 pub const TOKEN_LENGTH: usize = 32;
 const SALT_LENGTH: usize = 16;
 
+/// Creates a new random salt
 pub fn create_salt() -> [u8; SALT_LENGTH] {
     let mut rng = rand::thread_rng();
     let mut salt = [0u8; SALT_LENGTH];
@@ -16,6 +17,8 @@ pub fn create_salt() -> [u8; SALT_LENGTH] {
     salt
 }
 
+/// Creates a new random user token where the first 4 bytes represent
+/// the userId
 pub fn create_user_token(user_id: i32) -> [u8; TOKEN_LENGTH] {
     let mut rng = rand::thread_rng();
     let mut value = [0u8; TOKEN_LENGTH];
@@ -25,11 +28,13 @@ pub fn create_user_token(user_id: i32) -> [u8; TOKEN_LENGTH] {
     value
 }
 
+/// Extracts the userId from a request token
 pub fn get_user_id_from_token(token: &String) -> i32 {
     let token = base64::decode(&token).unwrap();
     BigEndian::read_i32(token.as_slice())
 }
 
+/// Hashes a password with a salt by using BCrypt
 pub fn hash_password(password: &[u8], salt: &[u8]) -> Result<[u8; 24], String> {
     panic::catch_unwind(|| {
         let mut pw_hash = [0u8; 24];

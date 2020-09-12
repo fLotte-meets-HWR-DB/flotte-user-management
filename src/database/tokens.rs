@@ -8,6 +8,7 @@ use zeroize::Zeroize;
 const REQUEST_TOKEN_EXPIRE_SECONDS: u32 = 60 * 10;
 const REFRESH_TOKEN_EXPIRE_SECONDS: u32 = 60 * 60 * 24;
 
+/// A struct to store session tokens of a user in a API-readable format
 #[derive(Clone, Debug, Zeroize, Serialize)]
 #[zeroize(drop)]
 pub struct SessionTokens {
@@ -18,6 +19,7 @@ pub struct SessionTokens {
 }
 
 impl SessionTokens {
+    /// Creates a new sessions token entry with newly generated tokens
     pub fn new(user_id: i32) -> Self {
         Self {
             request_token: base64::encode(create_user_token(user_id)),
@@ -27,7 +29,8 @@ impl SessionTokens {
         }
     }
 
-    pub fn from_tokens(request_token: String, refresh_token: String) -> Self {
+    /// Creates a sessions token entry with the given tokens
+    pub fn with_tokens(request_token: String, refresh_token: String) -> Self {
         Self {
             request_token,
             refresh_token,
@@ -36,6 +39,8 @@ impl SessionTokens {
         }
     }
 
+    /// Creates a new session tokens instance from a token store
+    /// entry
     pub fn from_entry(other: &TokenStoreEntry) -> Option<Self> {
         let request_token = other.request_token()?;
         let refresh_token = other.refresh_token()?;
@@ -47,6 +52,7 @@ impl SessionTokens {
         })
     }
 
+    /// Refreshes the request token
     pub fn refresh(&mut self) {
         self.request_token = base64::encode(create_user_token(self.get_user_id()));
     }
@@ -62,6 +68,10 @@ impl SessionTokens {
     }
 }
 
+/// A store entry for tokens that keeps track of the token
+/// expirations and provides an abstracted access to those.
+/// The tokens are stored as their actual bytes representation
+/// to decrease the memory impact
 #[derive(Clone, Debug)]
 pub struct TokenStoreEntry {
     request_token: [u8; TOKEN_LENGTH],
@@ -72,6 +82,8 @@ pub struct TokenStoreEntry {
 }
 
 impl TokenStoreEntry {
+    /// Creates a new token store entry with the given tokens
+    /// and sets the expiration to the configured maximum token lifetime
     pub fn new(request_token: &String, refresh_token: &String) -> Result<Self, String> {
         let request_token = base64::decode(request_token).unwrap();
         let refresh_token = &base64::decode(refresh_token).unwrap();
@@ -92,6 +104,9 @@ impl TokenStoreEntry {
         })
     }
 
+    /// Returns the ttl for the request token that is
+    /// calculated from the stored instant.
+    /// If the token is expired -1 is returned.
     pub fn request_ttl(&self) -> i32 {
         max(
             (self.request_ttl - self.ttl_start.elapsed().as_secs() as u32) as i32,
@@ -99,6 +114,9 @@ impl TokenStoreEntry {
         )
     }
 
+    /// Returns the ttl for the refresh token
+    /// that is calculated from the stored instant.
+    /// If the token is expired -1 is returned.
     pub fn refresh_ttl(&self) -> i32 {
         max(
             (self.refresh_ttl - self.ttl_start.elapsed().as_secs() as u32) as i32,
@@ -106,6 +124,7 @@ impl TokenStoreEntry {
         )
     }
 
+    /// Returns the request token if it hasn't expired
     pub fn request_token(&self) -> Option<String> {
         if self.request_ttl() > 0 {
             Some(base64::encode(&self.request_token))
@@ -114,6 +133,7 @@ impl TokenStoreEntry {
         }
     }
 
+    /// Returns the refresh token if it hasn't expired
     pub fn refresh_token(&self) -> Option<String> {
         if self.refresh_ttl() > 0 {
             Some(base64::encode(&self.refresh_token))
@@ -122,6 +142,8 @@ impl TokenStoreEntry {
         }
     }
 
+    /// Sets a new request token and resets
+    /// the expiration time for the request and refresh token
     pub fn set_request_token(&mut self, token: String) -> i32 {
         self.request_token
             .copy_from_slice(base64::decode(token).unwrap().as_slice());
@@ -132,6 +154,9 @@ impl TokenStoreEntry {
         self.request_ttl as i32
     }
 
+    /// Resets the timer that keeps track of the tokens expiration times
+    /// before resetting the current expiration times are stored so the ttl
+    /// for both tokens won't reset
     fn reset_timer(&mut self) {
         self.request_ttl = min(self.request_ttl(), 0) as u32;
         self.refresh_ttl = min(self.refresh_ttl(), 0) as u32;
@@ -151,7 +176,8 @@ impl TokenStore {
         }
     }
 
-    pub fn get_request_token(&self, request_token: &String) -> Option<&TokenStoreEntry> {
+    /// Returns the token store entry for a given request token
+    pub fn get_by_request_token(&self, request_token: &String) -> Option<&TokenStoreEntry> {
         let user_id = get_user_id_from_token(&request_token);
         if let Some(user_tokens) = self.tokens.get(&user_id) {
             user_tokens.iter().find(|e| {
@@ -165,7 +191,9 @@ impl TokenStore {
             None
         }
     }
-    pub fn get_refresh_token(&self, refresh_token: &String) -> Option<&TokenStoreEntry> {
+
+    /// Returns the token store entry by the given refresh token
+    pub fn get_by_refresh_token(&self, refresh_token: &String) -> Option<&TokenStoreEntry> {
         let user_id = get_user_id_from_token(&refresh_token);
         if let Some(user_tokens) = self.tokens.get(&user_id) {
             user_tokens.iter().find(|e| {
@@ -179,6 +207,9 @@ impl TokenStore {
             None
         }
     }
+
+    /// Sets the request token for a given refresh token
+    /// Also clears all expired token entries.
     pub fn set_request_token(&mut self, refresh_token: &String, request_token: &String) {
         self.clear_expired();
         let user_id = get_user_id_from_token(&request_token);
@@ -193,6 +224,7 @@ impl TokenStore {
         }
     }
 
+    /// Inserts a new pair of request and refresh token
     pub fn insert(&mut self, request_token: &String, refresh_token: &String) -> Result<(), String> {
         let user_id = get_user_id_from_token(refresh_token);
         let user_tokens = if let Some(user_tokens) = self.tokens.get_mut(&user_id) {
@@ -218,6 +250,7 @@ impl TokenStore {
         Ok(())
     }
 
+    /// Deletes all expired tokens from the store
     pub fn clear_expired(&mut self) {
         for (key, entry) in &self.tokens.clone() {
             self.tokens.insert(

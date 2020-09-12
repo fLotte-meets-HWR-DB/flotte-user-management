@@ -2,6 +2,8 @@ use crate::database::models::Permission;
 use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
 
+/// The m-n connection table for
+/// roles and permissions
 #[derive(Clone)]
 pub struct RolePermissions {
     pool: PostgresPool,
@@ -28,6 +30,7 @@ impl Table for RolePermissions {
 }
 
 impl RolePermissions {
+    /// Returns all permissions for a role
     pub fn by_role(&self, role_id: i32) -> DatabaseResult<Vec<Permission>> {
         let mut connection = self.pool.get()?;
         let rows = connection.query(

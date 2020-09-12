@@ -2,6 +2,7 @@ use crate::database::models::Role;
 use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
 
+/// A table that stores the relation between users and roles
 #[derive(Clone)]
 pub struct UserRoles {
     pool: PostgresPool,
@@ -28,6 +29,7 @@ impl Table for UserRoles {
 }
 
 impl UserRoles {
+    /// Returns all roles a user is asigned to
     pub fn by_user(&self, user_id: i32) -> DatabaseResult<Vec<Role>> {
         let mut connection = self.pool.get()?;
         let rows = connection.query(

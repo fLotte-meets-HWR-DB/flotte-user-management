@@ -10,6 +10,8 @@ use std::io::Read;
 const LISTEN_ADDRESS: &str = "HTTP_SERVER_ADDRESS";
 const DEFAULT_LISTEN_ADDRESS: &str = "127.0.0.1:8080";
 
+/// The HTTP server of the user management that provides a
+/// REST api for login and requesting tokens
 pub struct UserHttpServer {
     database: Database,
 }
@@ -57,6 +59,8 @@ impl UserHttpServer {
         }
     }
 
+    /// Stats the server.
+    /// This call blocks until the server is shut down.
     pub fn start(&self) {
         log::info!("Starting HTTP-Server...");
         let listen_address =
@@ -78,6 +82,7 @@ impl UserHttpServer {
         server.run()
     }
 
+    /// Handles the login part of the REST api
     fn login(database: &Database, request: &Request) -> HTTPResult<Response> {
         if let Some(mut data) = request.data() {
             let mut data_string = String::new();
@@ -95,6 +100,7 @@ impl UserHttpServer {
         }
     }
 
+    /// Handles the new token part of the rest api
     fn new_token(database: &Database, request: &Request) -> HTTPResult<Response> {
         if let Some(mut data) = request.data() {
             let mut data_string = String::new();

@@ -9,6 +9,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use zeroize::{Zeroize, Zeroizing};
 
+/// Table that stores users with their email addresses and hashed passwords
 #[derive(Clone)]
 pub struct Users {
     pool: PostgresPool,
@@ -41,6 +42,9 @@ impl Table for Users {
 }
 
 impl Users {
+    /// Creates a new user and returns an error if the user already exists.
+    /// When creating the user first a salt is generated, then the password is hashed
+    /// with BCrypt and the given salt. The salt and the hashed password are then stored into the database
     pub fn create_user(
         &self,
         name: String,
@@ -69,6 +73,8 @@ impl Users {
         Ok(UserRecord::from_ordered_row(&row))
     }
 
+    /// Creates new tokens for a user login that can be used by services
+    /// that need those tokens to verify a user login
     pub fn create_tokens(
         &self,
         email: &String,
@@ -88,9 +94,11 @@ impl Users {
         }
     }
 
+    /// Validates a request token and returns if it's valid and the
+    /// ttl of the token
     pub fn validate_request_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
         let store = self.token_store.lock();
-        let entry = store.get_request_token(&token);
+        let entry = store.get_by_request_token(&token);
 
         if let Some(entry) = entry {
             Ok((true, entry.request_ttl()))
@@ -99,9 +107,10 @@ impl Users {
         }
     }
 
+    /// Validates a refresh token and returns if it's valid and the ttl
     pub fn validate_refresh_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
         let store = self.token_store.lock();
-        let entry = store.get_refresh_token(&token);
+        let entry = store.get_by_refresh_token(&token);
 
         if let Some(entry) = entry {
             Ok((true, entry.refresh_ttl()))
@@ -110,9 +119,11 @@ impl Users {
         }
     }
 
+    /// Returns a new request token for a given refresh token
+    /// if the refresh token is valid
     pub fn refresh_tokens(&self, refresh_token: &String) -> DatabaseResult<SessionTokens> {
         let mut token_store = self.token_store.lock();
-        let tokens = token_store.get_refresh_token(refresh_token);
+        let tokens = token_store.get_by_refresh_token(refresh_token);
         if let Some(mut tokens) = tokens.and_then(|t| SessionTokens::from_entry(t)) {
             tokens.refresh();
             tokens.store(&mut token_store)?;
@@ -123,6 +134,8 @@ impl Users {
         }
     }
 
+    /// Validates the login data of the user by creating the hash for the given password
+    /// and comparing it with the database entry
     fn validate_login(&self, email: &String, password: &String) -> DatabaseResult<bool> {
         let mut connection = self.pool.get()?;
         let row = connection

@@ -2,6 +2,7 @@ use crate::database::models::{CreatePermissionsEntry, Permission};
 use crate::database::{DatabaseResult, PostgresPool, Table, ADMIN_ROLE_NAME};
 use crate::utils::error::DBError;
 
+/// The permissions table that stores defined
 #[derive(Clone)]
 pub struct Permissions {
     pool: PostgresPool,
@@ -27,6 +28,8 @@ impl Table for Permissions {
 }
 
 impl Permissions {
+    /// Creates new permissions that are automatically assigned
+    /// to the admin role upon creation
     pub fn create_permissions(
         &self,
         permissions: Vec<CreatePermissionsEntry>,

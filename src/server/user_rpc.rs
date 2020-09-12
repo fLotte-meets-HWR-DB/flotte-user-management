@@ -17,6 +17,9 @@ use std::thread::Builder;
 const RPC_SERVER_ADDRESS: &str = "RPC_SERVER_ADDRESS";
 const DEFAULT_SERVER_ADDRESS: &str = "127.0.0.1:5555";
 
+/// The RPC server that provides an interface
+/// for applications to validate request tokens
+/// and request the assigned roles
 pub struct UserRpcServer {
     database: Database,
 }
@@ -30,6 +33,7 @@ impl UserRpcServer {
         }
     }
 
+    /// Stats the user rpc server with 2 x num-cpus threads.
     pub fn start(&self) {
         let listen_address =
             dotenv::var(RPC_SERVER_ADDRESS).unwrap_or(DEFAULT_SERVER_ADDRESS.to_string());
@@ -70,6 +74,7 @@ impl UserRpcServer {
         }
     }
 
+    /// Handles the validation of request tokens
     fn handle_validate_token(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Validating token.");
         let message = TokenRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
@@ -84,6 +89,7 @@ impl UserRpcServer {
         Ok(Message::new(VALIDATE_TOKEN, data))
     }
 
+    /// Handles a INFO message that returns all valid methods of the rpc sserver
     fn handle_info() -> RpcResult<Message> {
         log::trace!("Get Info");
         Ok(Message::new_with_serialize(
@@ -124,6 +130,7 @@ impl UserRpcServer {
         ))
     }
 
+    /// Returns all permissions of a role
     fn handle_get_permissions(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Get Permissions");
         let message =
@@ -141,6 +148,7 @@ impl UserRpcServer {
         ))
     }
 
+    /// Returns all roles of a user
     fn handle_get_roles(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Get Roles");
         let message = TokenRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
@@ -159,6 +167,7 @@ impl UserRpcServer {
         Ok(Message::new_with_serialize(GET_ROLES, response_data))
     }
 
+    /// Handles the requests for creating new roles
     fn handle_create_role(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Create Role");
         let message = CreateRoleRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
@@ -171,6 +180,7 @@ impl UserRpcServer {
         Ok(Message::new_with_serialize(CREATE_ROLE, role))
     }
 
+    /// Handles the request for creating new permissions.
     fn handle_create_permissions(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Create Permission");
         let message =

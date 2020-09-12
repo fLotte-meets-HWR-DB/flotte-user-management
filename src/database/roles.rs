@@ -3,6 +3,8 @@ use crate::database::role_permissions::RolePermissions;
 use crate::database::{DatabaseResult, PostgresPool, Table, DEFAULT_ADMIN_EMAIL, ENV_ADMIN_EMAIL};
 use crate::utils::error::DBError;
 
+/// The role table that stores
+/// all defined roles
 #[derive(Clone)]
 pub struct Roles {
     pool: PostgresPool,
@@ -32,6 +34,10 @@ impl Table for Roles {
 }
 
 impl Roles {
+    /// Creates a new role with the given permissions
+    /// that are then automatically assigned to the role
+    ///
+    /// The role is automatically assigned to the default admin user
     pub fn create_role(
         &self,
         name: String,

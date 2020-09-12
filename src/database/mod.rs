@@ -9,7 +9,6 @@ use postgres::NoTls;
 use r2d2::Pool;
 use r2d2_postgres::PostgresConnectionManager;
 
-pub mod database_error;
 pub mod models;
 pub mod permissions;
 pub mod role_permissions;
@@ -32,6 +31,8 @@ pub trait Table {
     fn init(&self) -> DatabaseResult<()>;
 }
 
+/// A structure that provides access to the databases and handles the creation of models.
+/// Since it uses a Pool it can be cloned without losing the connection.
 #[derive(Clone)]
 pub struct Database {
     pool: PostgresPool,
