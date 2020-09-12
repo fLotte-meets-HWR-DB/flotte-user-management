@@ -9,11 +9,6 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use zeroize::{Zeroize, Zeroizing};
 
-const DEFAULT_ADMIN_PASSWORD: &str = "flotte-admin";
-const DEFAULT_ADMIN_EMAIL: &str = "admin@flotte-berlin.de";
-const ENV_ADMIN_PASSWORD: &str = "ADMIN_PASSWORD";
-const ENV_ADMIN_EMAIL: &str = "ADMIN_EMAIL";
-
 #[derive(Clone)]
 pub struct Users {
     pool: PostgresPool,
@@ -40,16 +35,6 @@ impl Table for Users {
             salt            BYTEA NOT NULL
         );",
         )?;
-        log::debug!("Creating admin user");
-        if let Err(e) = self.create_user(
-            "ADMIN".to_string(),
-            dotenv::var(ENV_ADMIN_EMAIL).unwrap_or(DEFAULT_ADMIN_EMAIL.to_string()),
-            dotenv::var(ENV_ADMIN_PASSWORD).unwrap_or(DEFAULT_ADMIN_PASSWORD.to_string()),
-        ) {
-            log::debug!("Failed to create admin user {}", e);
-        } else {
-            log::debug!("Admin user created successfully!");
-        }
 
         Ok(())
     }

@@ -21,6 +21,12 @@ pub mod users;
 const DB_CONNECTION_URL: &str = "POSTGRES_CONNECTION_URL";
 const DEFAULT_CONNECTION: &str = "postgres://postgres:postgres@localhost/postgres";
 
+const DEFAULT_ADMIN_PASSWORD: &str = "flotte-admin";
+const DEFAULT_ADMIN_EMAIL: &str = "admin@flotte-berlin.de";
+const ENV_ADMIN_PASSWORD: &str = "ADMIN_PASSWORD";
+const ENV_ADMIN_EMAIL: &str = "ADMIN_EMAIL";
+const ADMIN_ROLE_NAME: &str = "SUPERADMIN";
+
 pub trait Table {
     fn new(pool: PostgresPool) -> Self;
     fn init(&self) -> DatabaseResult<()>;
@@ -59,8 +65,27 @@ impl Database {
         self.permissions.init()?;
         log::info!("Initializing user_roles...");
         self.user_roles.init()?;
-        log::info!("Initializing user_permissions...");
+        log::info!("Initializing role_permissions...");
         self.role_permission.init()?;
+
+        // Create an admin user
+        if let Err(e) = self.users.create_user(
+            "ADMIN".to_string(),
+            dotenv::var(ENV_ADMIN_EMAIL).unwrap_or(DEFAULT_ADMIN_EMAIL.to_string()),
+            dotenv::var(ENV_ADMIN_PASSWORD).unwrap_or(DEFAULT_ADMIN_PASSWORD.to_string()),
+        ) {
+            log::debug!("Failed to create admin user {}", e);
+        } else {
+            log::debug!("Admin user created successfully!");
+        }
+        // Create an admin role where all roles get assigned to by default
+        if let Err(e) = self.roles.create_role(
+            ADMIN_ROLE_NAME.to_string(),
+            Some("System Superadmin".to_string()),
+            Vec::new(),
+        ) {
+            log::debug!("Failed to create admin role {}", e.to_string())
+        }
         log::info!("Database fully initialized!");
 
         Ok(())

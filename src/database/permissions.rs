@@ -1,5 +1,5 @@
 use crate::database::models::{CreatePermissionsEntry, Permission};
-use crate::database::{DatabaseResult, PostgresPool, Table};
+use crate::database::{DatabaseResult, PostgresPool, Table, ADMIN_ROLE_NAME};
 use crate::utils::error::DBError;
 
 #[derive(Clone)]
@@ -46,8 +46,19 @@ impl Permissions {
                         "INSERT INTO permissions (name, description) VALUES ($1, $2) RETURNING *;",
                         &[&name, &description],
                     )?;
+                    let permission: Permission = serde_postgres::from_row(&row)?;
+                    if let Err(e) = transaction.execute(
+                        "INSERT INTO role_permissions (role_id, permission_id) VALUES ((SELECT id FROM roles WHERE name = $1), $2)",
+                        &[&ADMIN_ROLE_NAME, &permission.id],
+                    ) {
+                        log::debug!(
+                            "Failed to assign permission {} to ADMIN role: {}",
+                            name,
+                            e.to_string()
+                        )
+                    }
 
-                    created_permissions.push(serde_postgres::from_row(&row)?);
+                    created_permissions.push(permission);
                 } else {
                     created_permissions.push(serde_postgres::from_row(&exists.unwrap())?);
                 }

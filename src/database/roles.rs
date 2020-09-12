@@ -1,6 +1,6 @@
 use crate::database::models::Role;
 use crate::database::role_permissions::RolePermissions;
-use crate::database::{DatabaseResult, PostgresPool, Table};
+use crate::database::{DatabaseResult, PostgresPool, Table, DEFAULT_ADMIN_EMAIL, ENV_ADMIN_EMAIL};
 use crate::utils::error::DBError;
 
 #[derive(Clone)]
@@ -18,17 +18,16 @@ impl Table for Roles {
     }
 
     fn init(&self) -> DatabaseResult<()> {
-        self.pool
-            .get()?
-            .batch_execute(
-                "
+        self.pool.get()?.batch_execute(
+            "
             CREATE TABLE IF NOT EXISTS roles (
             id              SERIAL PRIMARY KEY,
             name            VARCHAR(128) UNIQUE NOT NULL,
             description     VARCHAR(512)
         );",
-            )
-            .map_err(DBError::from)
+        )?;
+
+        Ok(())
     }
 }
 
@@ -46,7 +45,9 @@ impl Roles {
             return Err(DBError::RecordExists);
         }
         log::trace!("Preparing transaction");
+        let admin_email = dotenv::var(ENV_ADMIN_EMAIL).unwrap_or(DEFAULT_ADMIN_EMAIL.to_string());
         let mut transaction = connection.transaction()?;
+
         let result: DatabaseResult<Role> = {
             let row = transaction.query_one(
                 "INSERT INTO roles (name, description) VALUES ($1, $2) RETURNING *",
@@ -60,8 +61,8 @@ impl Roles {
                 )?;
             }
             if let Err(e) = transaction.execute(
-                "INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)",
-                &[&1, &role.id],
+                "INSERT INTO user_roles (user_id, role_id) VALUES ((SELECT id FROM users WHERE email = $1), $2)",
+                &[&admin_email, &role.id],
             ) {
                 log::debug!("Failed to add role to admin user: {}", e);
             }
