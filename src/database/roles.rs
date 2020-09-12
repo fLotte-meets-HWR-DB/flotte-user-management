@@ -62,17 +62,31 @@ impl Roles {
                     &[&role.id, &permission],
                 )?;
             }
+            if let Err(e) = transaction.execute(
+                "INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2)",
+                &[&1, &role.id],
+            ) {
+                log::debug!("Failed to add role to admin user: {}", e);
+            }
 
             Ok(role)
         };
-        if let Err(_) = result {
-            log::trace!("Rollback");
-            transaction.rollback()?;
-        } else {
-            log::trace!("Commit");
-            transaction.commit()?;
-        }
+        match result {
+            Err(e) => {
+                log::warn!("Failed to create role {}: {}", name, e);
+                log::trace!("Rolling back...");
+                transaction.rollback()?;
+                log::trace!("Rolled back!");
+                Err(e)
+            }
+            Ok(role) => {
+                log::debug!("Successfully created role {} with id {}", name, role.id);
+                log::trace!("Committing...");
+                transaction.commit()?;
+                log::trace!("Committed!");
 
-        result
+                Ok(role)
+            }
+        }
     }
 }

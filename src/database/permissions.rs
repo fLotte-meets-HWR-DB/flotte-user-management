@@ -42,8 +42,8 @@ impl Permissions {
         let _: Vec<DatabaseResult<()>> = permissions
             .iter()
             .map(|CreatePermissionsEntry { name, description }| {
-                let exists = transaction
-                    .query_opt("SELECT id FROM permissions WHERE name = $1", &[&name])?;
+                let exists =
+                    transaction.query_opt("SELECT * FROM permissions WHERE name = $1", &[&name])?;
 
                 if exists.is_none() {
                     let row = transaction.query_one(
@@ -52,12 +52,15 @@ impl Permissions {
                     )?;
 
                     created_permissions.push(serde_postgres::from_row(&row)?);
+                } else {
+                    created_permissions.push(serde_postgres::from_row(&exists.unwrap())?);
                 }
 
                 Ok(())
             })
             .collect();
         transaction.commit()?;
+
         Ok(created_permissions)
     }
 }
