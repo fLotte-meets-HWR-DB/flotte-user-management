@@ -382,6 +382,7 @@ dependencies = [
  "mime 0.3.16",
  "msgrpc",
  "num_cpus",
+ "parking_lot",
  "postgres",
  "r2d2",
  "r2d2_postgres",

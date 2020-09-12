@@ -5,7 +5,8 @@ use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
 use crate::utils::{create_salt, hash_password};
 
-use std::sync::{Arc, Mutex};
+use parking_lot::Mutex;
+use std::sync::Arc;
 use zeroize::{Zeroize, Zeroizing};
 
 const DEFAULT_ADMIN_PASSWORD: &str = "flotte-admin";
@@ -94,7 +95,7 @@ impl Users {
             let id: i32 = row.get(0);
 
             let tokens = SessionTokens::new(id);
-            tokens.store(&mut self.token_store.lock().unwrap())?;
+            tokens.store(&mut self.token_store.lock())?;
 
             Ok(tokens)
         } else {
@@ -103,7 +104,7 @@ impl Users {
     }
 
     pub fn validate_request_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
-        let store = self.token_store.lock().unwrap();
+        let store = self.token_store.lock();
         let entry = store.get_request_token(&token);
 
         if let Some(entry) = entry {
@@ -114,7 +115,7 @@ impl Users {
     }
 
     pub fn validate_refresh_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
-        let store = self.token_store.lock().unwrap();
+        let store = self.token_store.lock();
         let entry = store.get_refresh_token(&token);
 
         if let Some(entry) = entry {
@@ -125,7 +126,7 @@ impl Users {
     }
 
     pub fn refresh_tokens(&self, refresh_token: &String) -> DatabaseResult<SessionTokens> {
-        let mut token_store = self.token_store.lock().unwrap();
+        let mut token_store = self.token_store.lock();
         let tokens = token_store.get_refresh_token(refresh_token);
         if let Some(mut tokens) = tokens.and_then(|t| SessionTokens::from_entry(t)) {
             tokens.refresh();
