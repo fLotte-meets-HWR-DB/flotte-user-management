@@ -9,6 +9,11 @@ use postgres::Client;
 use std::sync::{Arc, Mutex};
 use zeroize::{Zeroize, Zeroizing};
 
+const DEFAULT_ADMIN_PASSWORD: &str = "flotte-admin";
+const DEFAULT_ADMIN_EMAIL: &str = "admin@flotte-berlin.de";
+const ENV_ADMIN_PASSWORD: &str = "ADMIN_PASSWORD";
+const ENV_ADMIN_EMAIL: &str = "ADMIN_EMAIL";
+
 #[derive(Clone)]
 pub struct Users {
     database_connection: Arc<Mutex<Client>>,
@@ -26,19 +31,27 @@ impl Table for Users {
     }
 
     fn init(&self) -> DatabaseResult<()> {
-        self.database_connection
-            .lock()
-            .unwrap()
-            .batch_execute(
-                "CREATE TABLE IF NOT EXISTS users (
+        self.database_connection.lock().unwrap().batch_execute(
+            "CREATE TABLE IF NOT EXISTS users (
             id              SERIAL PRIMARY KEY,
             name            VARCHAR(255) NOT NULL,
             email           VARCHAR(255) UNIQUE NOT NULL,
             password_hash   BYTEA NOT NULL,
             salt            BYTEA NOT NULL
         );",
-            )
-            .map_err(DBError::from)
+        )?;
+        log::debug!("Creating admin user");
+        if let Err(e) = self.create_user(
+            "ADMIN".to_string(),
+            dotenv::var(ENV_ADMIN_EMAIL).unwrap_or(DEFAULT_ADMIN_EMAIL.to_string()),
+            dotenv::var(ENV_ADMIN_PASSWORD).unwrap_or(DEFAULT_ADMIN_PASSWORD.to_string()),
+        ) {
+            log::debug!("Failed to create admin user {}", e);
+        } else {
+            log::debug!("Admin user created successfully!");
+        }
+
+        Ok(())
     }
 }
 
@@ -51,11 +64,13 @@ impl Users {
     ) -> DatabaseResult<UserRecord> {
         let mut connection = self.database_connection.lock().unwrap();
         let mut password = Zeroizing::new(password);
+        log::trace!("Creating user {} with email  {}", name, email);
 
         if !connection
             .query("SELECT email FROM users WHERE email = $1", &[&email])?
             .is_empty()
         {
+            log::trace!("Failed to create user: Record exists!");
             return Err(DBError::RecordExists);
         }
         let salt = Zeroizing::new(create_salt());

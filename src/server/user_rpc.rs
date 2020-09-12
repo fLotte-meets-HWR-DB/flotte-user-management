@@ -11,7 +11,7 @@ use rmp_serde::Deserializer;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::thread;
+use std::thread::Builder;
 
 const RPC_SERVER_ADDRESS: &str = "RPC_SERVER_ADDRESS";
 const DEFAULT_SERVER_ADDRESS: &str = "127.0.0.1:5555";
@@ -30,15 +30,21 @@ impl UserRpcServer {
     }
 
     pub fn start(&self) {
-        let mut server = RpcServer::new(
-            dotenv::var(RPC_SERVER_ADDRESS).unwrap_or(DEFAULT_SERVER_ADDRESS.to_string()),
-        );
+        let listen_address =
+            dotenv::var(RPC_SERVER_ADDRESS).unwrap_or(DEFAULT_SERVER_ADDRESS.to_string());
+        log::info!("Starting RPC-Server...");
+        let mut server = RpcServer::new(listen_address.clone());
         let receiver = Arc::clone(&server.receiver);
-        thread::spawn(move || {
-            server.start().unwrap();
-        });
+        Builder::new()
+            .name("tcp-receiver".to_string())
+            .spawn(move || {
+                server.start().unwrap();
+            })
+            .unwrap();
+        log::info!("RPC-Server running on {}", listen_address);
         while let Ok(h) = receiver.lock().unwrap().recv() {
             let mut handler = h.lock().unwrap();
+            log::debug!("Received message {:?}", handler.message);
             let response = match handler.message.method {
                 INFO => self.handle_info(),
                 GET_ROLES => self.handle_get_roles(&handler.message.data),
@@ -49,7 +55,7 @@ impl UserRpcServer {
                 _ => Err(ErrorMessage::new("Invalid Method".to_string())),
             }
             .unwrap_or_else(|e| Message::new_with_serialize(ERROR, e));
-            log::trace!("Responding with {:?}", &response);
+            log::debug!("Responding with message {:?}", &response);
             handler.done(response);
         }
     }

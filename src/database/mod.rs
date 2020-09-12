@@ -52,11 +52,17 @@ impl Database {
 
     /// Inits all database models
     pub fn init(&self) -> DatabaseResult<()> {
+        log::info!("Initializing users...");
         self.users.init()?;
+        log::info!("Initializing roles...");
         self.roles.init()?;
+        log::info!("Initializing permissions...");
         self.permissions.init()?;
+        log::info!("Initializing user_roles...");
         self.user_roles.init()?;
+        log::info!("Initializing user_permissions...");
         self.role_permission.init()?;
+        log::info!("Database fully initialized!");
 
         Ok(())
     }

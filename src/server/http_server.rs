@@ -58,10 +58,11 @@ impl UserHttpServer {
     }
 
     pub fn start(&self) {
+        log::info!("Starting HTTP-Server...");
         let listen_address =
             dotenv::var(LISTEN_ADDRESS).unwrap_or(DEFAULT_LISTEN_ADDRESS.to_string());
         let database = Database::clone(&self.database);
-        let server = Server::new(listen_address, move |request| {
+        let server = Server::new(&listen_address, move |request| {
             router!(request,
                 (POST) (/login) => {
                     Self::login(&database, request).unwrap_or_else(|e|e.into())
@@ -73,6 +74,7 @@ impl UserHttpServer {
             )
         })
         .unwrap();
+        log::info!("HTTP-Server running on {}", listen_address);
         server.run()
     }
 

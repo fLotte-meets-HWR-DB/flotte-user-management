@@ -1,3 +1,4 @@
+use chrono::Local;
 use colored::Colorize;
 use crossbeam_utils::sync::WaitGroup;
 use env_logger::Env;
@@ -6,6 +7,7 @@ use flotte_user_management::server::http_server::UserHttpServer;
 use flotte_user_management::server::user_rpc::UserRpcServer;
 use log::Level;
 use std::thread;
+use std::thread::Builder;
 
 fn main() {
     init_logger();
@@ -16,18 +18,24 @@ fn main() {
     let wg = WaitGroup::new();
     {
         let wg = WaitGroup::clone(&wg);
-        thread::spawn(move || {
-            rpc_server.start();
-            std::mem::drop(wg);
-        });
+        Builder::new()
+            .name("rpc".to_string())
+            .spawn(move || {
+                rpc_server.start();
+                std::mem::drop(wg);
+            })
+            .unwrap();
     }
     {
         let wg = WaitGroup::clone(&wg);
         let http_server = http_server;
-        thread::spawn(move || {
-            http_server.start();
-            std::mem::drop(wg);
-        });
+        Builder::new()
+            .name("http".to_string())
+            .spawn(move || {
+                http_server.start();
+                std::mem::drop(wg);
+            })
+            .unwrap();
     }
     wg.wait();
 }
@@ -39,7 +47,10 @@ fn init_logger() {
             let color = get_level_style(record.level());
             writeln!(
                 buf,
-                "{}: {}",
+                "{:<12} {:<45}| {} {}: {}",
+                format!("thread::{}", thread::current().name().unwrap_or("main")).dimmed(),
+                record.target().dimmed().italic(),
+                Local::now().format("%Y-%m-%dT%H:%M:%S"),
                 record
                     .level()
                     .to_string()

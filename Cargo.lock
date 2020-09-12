@@ -373,6 +373,7 @@ dependencies = [
  "base64 0.12.3",
  "bcrypt",
  "byteorder",
+ "chrono",
  "colored",
  "crossbeam-utils",
  "dotenv",
