@@ -1,25 +1,20 @@
 use crate::database::models::{CreatePermissionsEntry, Permission};
-use crate::database::{DatabaseClient, DatabaseResult, Table};
+use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
-use postgres::Client;
-use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct Permissions {
-    database_connection: Arc<Mutex<DatabaseClient>>,
+    pool: PostgresPool,
 }
 
 impl Table for Permissions {
-    fn new(database_connection: Arc<Mutex<Client>>) -> Self {
-        Self {
-            database_connection,
-        }
+    fn new(pool: PostgresPool) -> Self {
+        Self { pool }
     }
 
     fn init(&self) -> DatabaseResult<()> {
-        self.database_connection
-            .lock()
-            .unwrap()
+        self.pool
+            .get()?
             .batch_execute(
                 "CREATE TABLE IF NOT EXISTS permissions (
                         id              SERIAL PRIMARY KEY,
@@ -36,7 +31,7 @@ impl Permissions {
         &self,
         permissions: Vec<CreatePermissionsEntry>,
     ) -> DatabaseResult<Vec<Permission>> {
-        let mut connection = self.database_connection.lock().unwrap();
+        let mut connection = self.pool.get()?;
         let mut transaction = connection.transaction()?;
         let mut created_permissions = Vec::new();
         let _: Vec<DatabaseResult<()>> = permissions

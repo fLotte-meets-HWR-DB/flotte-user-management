@@ -97,7 +97,7 @@ impl UserRpcServer {
                     "get permissions",
                     GET_ROLE_PERMISSIONS,
                     "Returns all permissions the given roles are assigned to",
-                    "{role_ids: [i32]}",
+                    "{roles: [i32]}",
                 ),
                 InfoEntry::new(
                     "create role",
@@ -121,7 +121,7 @@ impl UserRpcServer {
             GetPermissionsRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
                 .map_err(|e| ErrorMessage::new(e.to_string()))?;
         let mut response_data = HashMap::new();
-        for role_id in message.role_ids {
+        for role_id in message.roles {
             let permissions = self.database.role_permission.by_role(role_id)?;
             response_data.insert(role_id.to_string(), permissions);
         }

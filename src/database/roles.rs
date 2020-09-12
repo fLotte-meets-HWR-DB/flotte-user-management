@@ -1,28 +1,25 @@
 use crate::database::models::Role;
 use crate::database::role_permissions::RolePermissions;
-use crate::database::{DatabaseResult, Table};
+use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
-use postgres::Client;
-use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct Roles {
-    database_connection: Arc<Mutex<Client>>,
+    pool: PostgresPool,
     role_permission: RolePermissions,
 }
 
 impl Table for Roles {
-    fn new(database_connection: Arc<Mutex<Client>>) -> Self {
+    fn new(pool: PostgresPool) -> Self {
         Self {
-            role_permission: RolePermissions::new(Arc::clone(&database_connection)),
-            database_connection,
+            role_permission: RolePermissions::new(PostgresPool::clone(&pool)),
+            pool,
         }
     }
 
     fn init(&self) -> DatabaseResult<()> {
-        self.database_connection
-            .lock()
-            .unwrap()
+        self.pool
+            .get()?
             .batch_execute(
                 "
             CREATE TABLE IF NOT EXISTS roles (
@@ -42,7 +39,7 @@ impl Roles {
         description: Option<String>,
         permissions: Vec<i32>,
     ) -> DatabaseResult<Role> {
-        let mut connection = self.database_connection.lock().unwrap();
+        let mut connection = self.pool.get()?;
         let exists = connection.query_opt("SELECT id FROM roles WHERE name = $1", &[&name])?;
 
         if exists.is_some() {

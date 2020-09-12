@@ -1,11 +1,10 @@
 use crate::database::models::UserRecord;
 use crate::database::tokens::{SessionTokens, TokenStore};
 use crate::database::user_roles::UserRoles;
-use crate::database::{DatabaseResult, Table};
+use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
 use crate::utils::{create_salt, hash_password};
 
-use postgres::Client;
 use std::sync::{Arc, Mutex};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -16,22 +15,22 @@ const ENV_ADMIN_EMAIL: &str = "ADMIN_EMAIL";
 
 #[derive(Clone)]
 pub struct Users {
-    database_connection: Arc<Mutex<Client>>,
+    pool: PostgresPool,
     user_roles: UserRoles,
     token_store: Arc<Mutex<TokenStore>>,
 }
 
 impl Table for Users {
-    fn new(database_connection: Arc<Mutex<Client>>) -> Self {
+    fn new(pool: PostgresPool) -> Self {
         Self {
-            user_roles: UserRoles::new(Arc::clone(&database_connection)),
-            database_connection,
+            user_roles: UserRoles::new(PostgresPool::clone(&pool)),
+            pool,
             token_store: Arc::new(Mutex::new(TokenStore::new())),
         }
     }
 
     fn init(&self) -> DatabaseResult<()> {
-        self.database_connection.lock().unwrap().batch_execute(
+        self.pool.get()?.batch_execute(
             "CREATE TABLE IF NOT EXISTS users (
             id              SERIAL PRIMARY KEY,
             name            VARCHAR(255) NOT NULL,
@@ -62,7 +61,7 @@ impl Users {
         email: String,
         password: String,
     ) -> DatabaseResult<UserRecord> {
-        let mut connection = self.database_connection.lock().unwrap();
+        let mut connection = self.pool.get()?;
         let mut password = Zeroizing::new(password);
         log::trace!("Creating user {} with email  {}", name, email);
 
@@ -90,7 +89,7 @@ impl Users {
         password: &String,
     ) -> DatabaseResult<SessionTokens> {
         if self.validate_login(&email, password)? {
-            let mut connection = self.database_connection.lock().unwrap();
+            let mut connection = self.pool.get()?;
             let row = connection.query_one("SELECT id FROM users WHERE email = $1", &[&email])?;
             let id: i32 = row.get(0);
 
@@ -139,7 +138,7 @@ impl Users {
     }
 
     fn validate_login(&self, email: &String, password: &String) -> DatabaseResult<bool> {
-        let mut connection = self.database_connection.lock().unwrap();
+        let mut connection = self.pool.get()?;
         let row = connection
             .query_opt(
                 "SELECT password_hash, salt FROM users WHERE email = $1",

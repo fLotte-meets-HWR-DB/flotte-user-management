@@ -1,3 +1,4 @@
+use r2d2::Error;
 use serde_postgres::DeError;
 use std::error;
 use std::fmt::{self, Display, Formatter};
@@ -5,6 +6,7 @@ use std::fmt::{self, Display, Formatter};
 #[derive(Debug)]
 pub enum DBError {
     Postgres(PostgresError),
+    Pool(r2d2::Error),
     RecordExists,
     BCryptError,
     DeserializeError(serde_postgres::DeError),
@@ -27,6 +29,7 @@ impl DBError {
             DBError::Postgres(p) => p.to_string(),
             DBError::DeserializeError(de) => de.to_string(),
             DBError::BCryptError => "BCrypt Hash creation error".to_string(),
+            DBError::Pool(p) => p.to_string(),
         }
     }
 }
@@ -36,6 +39,12 @@ pub type DatabaseResult<T> = Result<T, DBError>;
 impl From<PostgresError> for DBError {
     fn from(other: PostgresError) -> Self {
         Self::Postgres(other)
+    }
+}
+
+impl From<r2d2::Error> for DBError {
+    fn from(other: Error) -> Self {
+        Self::Pool(other)
     }
 }
 

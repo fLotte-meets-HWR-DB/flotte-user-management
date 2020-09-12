@@ -1,25 +1,20 @@
 use crate::database::models::Role;
-use crate::database::{DatabaseResult, Table};
+use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
-use postgres::Client;
-use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct UserRoles {
-    database_connection: Arc<Mutex<Client>>,
+    pool: PostgresPool,
 }
 
 impl Table for UserRoles {
-    fn new(database_connection: Arc<Mutex<Client>>) -> Self {
-        Self {
-            database_connection,
-        }
+    fn new(pool: PostgresPool) -> Self {
+        Self { pool }
     }
 
     fn init(&self) -> DatabaseResult<()> {
-        self.database_connection
-            .lock()
-            .unwrap()
+        self.pool
+            .get()?
             .batch_execute(
                 "
         CREATE TABLE IF NOT EXISTS user_roles (
@@ -34,7 +29,7 @@ impl Table for UserRoles {
 
 impl UserRoles {
     pub fn by_user(&self, user_id: i32) -> DatabaseResult<Vec<Role>> {
-        let mut connection = self.database_connection.lock().unwrap();
+        let mut connection = self.pool.get()?;
         let rows = connection.query(
             "SELECT * FROM user_roles, roles WHERE user_id = $1 AND roles.id = user_roles.role_id",
             &[&user_id],

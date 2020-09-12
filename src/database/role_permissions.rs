@@ -1,24 +1,20 @@
 use crate::database::models::Permission;
-use crate::database::{DatabaseClient, DatabaseResult, Table};
+use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
-use std::sync::{Arc, Mutex};
 
 #[derive(Clone)]
 pub struct RolePermissions {
-    database_connection: Arc<Mutex<DatabaseClient>>,
+    pool: PostgresPool,
 }
 
 impl Table for RolePermissions {
-    fn new(database_connection: Arc<Mutex<DatabaseClient>>) -> Self {
-        Self {
-            database_connection,
-        }
+    fn new(pool: PostgresPool) -> Self {
+        Self { pool }
     }
 
     fn init(&self) -> DatabaseResult<()> {
-        self.database_connection
-            .lock()
-            .unwrap()
+        self.pool
+            .get()?
             .batch_execute(
                 "
             CREATE TABLE IF NOT EXISTS role_permissions (
@@ -33,7 +29,7 @@ impl Table for RolePermissions {
 
 impl RolePermissions {
     pub fn by_role(&self, role_id: i32) -> DatabaseResult<Vec<Permission>> {
-        let mut connection = self.database_connection.lock().unwrap();
+        let mut connection = self.pool.get()?;
         let rows = connection.query(
             "SELECT * FROM role_permissions, permissions WHERE role_id = $1 AND role_permissions.permission_id = permissions.id", 
             &[&role_id])?;

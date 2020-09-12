@@ -3,10 +3,11 @@ use crate::database::role_permissions::RolePermissions;
 use crate::database::roles::Roles;
 use crate::database::user_roles::UserRoles;
 use crate::database::users::Users;
-use crate::utils::error::{DBError, DatabaseClient, DatabaseResult, PostgresError};
+use crate::utils::error::DatabaseResult;
 use dotenv;
-use postgres::{Client, NoTls};
-use std::sync::{Arc, Mutex};
+use postgres::NoTls;
+use r2d2::Pool;
+use r2d2_postgres::PostgresConnectionManager;
 
 pub mod database_error;
 pub mod models;
@@ -21,13 +22,13 @@ const DB_CONNECTION_URL: &str = "POSTGRES_CONNECTION_URL";
 const DEFAULT_CONNECTION: &str = "postgres://postgres:postgres@localhost/postgres";
 
 pub trait Table {
-    fn new(database_connection: Arc<Mutex<DatabaseClient>>) -> Self;
+    fn new(pool: PostgresPool) -> Self;
     fn init(&self) -> DatabaseResult<()>;
 }
 
 #[derive(Clone)]
 pub struct Database {
-    database_connection: Arc<Mutex<Client>>,
+    pool: PostgresPool,
     pub users: Users,
     pub roles: Roles,
     pub permissions: Permissions,
@@ -37,16 +38,14 @@ pub struct Database {
 
 impl Database {
     pub fn new() -> DatabaseResult<Self> {
-        let database_connection = Arc::new(Mutex::new(
-            get_database_connection().map_err(|e| DBError::Postgres(e))?,
-        ));
+        let pool = get_database_connection()?;
         Ok(Self {
-            users: Users::new(Arc::clone(&database_connection)),
-            roles: Roles::new(Arc::clone(&database_connection)),
-            permissions: Permissions::new(Arc::clone(&database_connection)),
-            user_roles: UserRoles::new(Arc::clone(&database_connection)),
-            role_permission: RolePermissions::new(Arc::clone(&database_connection)),
-            database_connection,
+            users: Users::new(PostgresPool::clone(&pool)),
+            roles: Roles::new(PostgresPool::clone(&pool)),
+            permissions: Permissions::new(PostgresPool::clone(&pool)),
+            user_roles: UserRoles::new(PostgresPool::clone(&pool)),
+            role_permission: RolePermissions::new(PostgresPool::clone(&pool)),
+            pool,
         })
     }
 
@@ -67,8 +66,15 @@ impl Database {
         Ok(())
     }
 }
+
+pub type PostgresPool = Pool<PostgresConnectionManager<NoTls>>;
+
 /// Returns a database connection
-fn get_database_connection() -> Result<DatabaseClient, PostgresError> {
+fn get_database_connection() -> Result<PostgresPool, r2d2::Error> {
     let conn_url = dotenv::var(DB_CONNECTION_URL).unwrap_or(DEFAULT_CONNECTION.to_string());
-    Client::connect(conn_url.as_str(), NoTls)
+
+    Pool::new(PostgresConnectionManager::new(
+        conn_url.parse().unwrap(),
+        NoTls,
+    ))
 }

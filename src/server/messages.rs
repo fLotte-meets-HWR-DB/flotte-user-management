@@ -61,7 +61,7 @@ impl InfoEntry {
 
 #[derive(Deserialize)]
 pub struct GetPermissionsRequest {
-    pub role_ids: Vec<i32>,
+    pub roles: Vec<i32>,
 }
 
 #[derive(Deserialize)]
