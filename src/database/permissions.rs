@@ -34,6 +34,7 @@ impl Permissions {
         let mut connection = self.pool.get()?;
         let mut transaction = connection.transaction()?;
         let mut created_permissions = Vec::new();
+
         let _: Vec<DatabaseResult<()>> = permissions
             .iter()
             .map(|CreatePermissionsEntry { name, description }| {

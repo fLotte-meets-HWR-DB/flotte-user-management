@@ -8,6 +8,7 @@ use crate::utils::get_user_id_from_token;
 use msgrpc::message::Message;
 use msgrpc::server::RpcServer;
 use rmp_serde::Deserializer;
+use scheduled_thread_pool::ScheduledThreadPool;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -41,31 +42,39 @@ impl UserRpcServer {
                 server.start().unwrap();
             })
             .unwrap();
+        let pool = ScheduledThreadPool::new(num_cpus::get());
         log::info!("RPC-Server running on {}", listen_address);
         while let Ok(h) = receiver.lock().unwrap().recv() {
-            let mut handler = h.lock().unwrap();
-            log::debug!("Received message {:?}", handler.message);
-            let response = match handler.message.method {
-                INFO => self.handle_info(),
-                GET_ROLES => self.handle_get_roles(&handler.message.data),
-                VALIDATE_TOKEN => self.handle_validate_token(&handler.message.data),
-                GET_ROLE_PERMISSIONS => self.handle_get_permissions(&handler.message.data),
-                CREATE_ROLE => self.handle_create_role(&handler.message.data),
-                CREATE_PERMISSION => self.handle_create_permissions(&handler.message.data),
-                _ => Err(ErrorMessage::new("Invalid Method".to_string())),
-            }
-            .unwrap_or_else(|e| Message::new_with_serialize(ERROR, e));
-            log::debug!("Responding with message {:?}", &response);
-            handler.done(response);
+            let database = Database::clone(&self.database);
+            log::trace!("Scheduling message for execution in pool");
+            pool.execute(move || {
+                let mut handler = h.lock().unwrap();
+                log::debug!("Received message {:?}", handler.message);
+                let response = match handler.message.method {
+                    INFO => Self::handle_info(),
+                    GET_ROLES => Self::handle_get_roles(database, &handler.message.data),
+                    VALIDATE_TOKEN => Self::handle_validate_token(database, &handler.message.data),
+                    GET_ROLE_PERMISSIONS => {
+                        Self::handle_get_permissions(database, &handler.message.data)
+                    }
+                    CREATE_ROLE => Self::handle_create_role(database, &handler.message.data),
+                    CREATE_PERMISSION => {
+                        Self::handle_create_permissions(database, &handler.message.data)
+                    }
+                    _ => Err(ErrorMessage::new("Invalid Method".to_string())),
+                }
+                .unwrap_or_else(|e| Message::new_with_serialize(ERROR, e));
+                log::debug!("Responding with message {:?}", &response);
+                handler.done(response);
+            });
         }
     }
 
-    fn handle_validate_token(&self, data: &Vec<u8>) -> RpcResult<Message> {
+    fn handle_validate_token(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Validating token.");
         let message = TokenRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
             .map_err(|e| ErrorMessage::new(e.to_string()))?;
-        let valid = self
-            .database
+        let valid = database
             .users
             .validate_request_token(&message.token)
             .unwrap_or((false, -1));
@@ -75,7 +84,7 @@ impl UserRpcServer {
         Ok(Message::new(VALIDATE_TOKEN, data))
     }
 
-    fn handle_info(&self) -> RpcResult<Message> {
+    fn handle_info() -> RpcResult<Message> {
         log::trace!("Get Info");
         Ok(Message::new_with_serialize(
             INFO,
@@ -115,14 +124,14 @@ impl UserRpcServer {
         ))
     }
 
-    fn handle_get_permissions(&self, data: &Vec<u8>) -> RpcResult<Message> {
+    fn handle_get_permissions(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Get Permissions");
         let message =
             GetPermissionsRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
                 .map_err(|e| ErrorMessage::new(e.to_string()))?;
         let mut response_data = HashMap::new();
         for role_id in message.roles {
-            let permissions = self.database.role_permission.by_role(role_id)?;
+            let permissions = database.role_permission.by_role(role_id)?;
             response_data.insert(role_id.to_string(), permissions);
         }
 
@@ -132,12 +141,11 @@ impl UserRpcServer {
         ))
     }
 
-    fn handle_get_roles(&self, data: &Vec<u8>) -> RpcResult<Message> {
+    fn handle_get_roles(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Get Roles");
         let message = TokenRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
             .map_err(|e| ErrorMessage::new(e.to_string()))?;
-        if !self
-            .database
+        if !database
             .users
             .validate_request_token(&message.token)
             .unwrap_or((false, -1))
@@ -146,31 +154,29 @@ impl UserRpcServer {
             return Err(ErrorMessage::new("Invalid request token".to_string()));
         }
         let user_id = get_user_id_from_token(&message.token);
-        let response_data = self.database.user_roles.by_user(user_id)?;
+        let response_data = database.user_roles.by_user(user_id)?;
 
         Ok(Message::new_with_serialize(GET_ROLES, response_data))
     }
 
-    fn handle_create_role(&self, data: &Vec<u8>) -> RpcResult<Message> {
+    fn handle_create_role(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Create Role");
         let message = CreateRoleRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
             .map_err(|e| ErrorMessage::new(e.to_string()))?;
-        let role = self.database.roles.create_role(
-            message.name,
-            message.description,
-            message.permissions,
-        )?;
+        let role =
+            database
+                .roles
+                .create_role(message.name, message.description, message.permissions)?;
 
         Ok(Message::new_with_serialize(CREATE_ROLE, role))
     }
 
-    fn handle_create_permissions(&self, data: &Vec<u8>) -> RpcResult<Message> {
+    fn handle_create_permissions(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Create Permission");
         let message =
             CreatePermissionsRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
                 .map_err(|e| ErrorMessage::new(e.to_string()))?;
-        let permissions = self
-            .database
+        let permissions = database
             .permissions
             .create_permissions(message.permissions)?;
 

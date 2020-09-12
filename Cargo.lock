@@ -381,6 +381,7 @@ dependencies = [
  "log 0.4.11",
  "mime 0.3.16",
  "msgrpc",
+ "num_cpus",
  "postgres",
  "r2d2",
  "r2d2_postgres",
@@ -388,6 +389,7 @@ dependencies = [
  "rmp",
  "rmp-serde",
  "rouille",
+ "scheduled-thread-pool",
  "serde",
  "serde_json",
  "serde_postgres",
@@ -751,8 +753,10 @@ dependencies = [
  "crc",
  "crossbeam-utils",
  "log 0.4.11",
+ "num_cpus",
  "rmp",
  "rmp-serde",
+ "scheduled-thread-pool",
  "serde",
 ]
 
