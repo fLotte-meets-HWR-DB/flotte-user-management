@@ -59,7 +59,7 @@ impl SessionTokens {
 
     /// Returns the user id that is stored in the first four bytes of the refresh token
     pub fn get_user_id(&self) -> i32 {
-        get_user_id_from_token(&self.refresh_token)
+        get_user_id_from_token(&self.refresh_token).unwrap()
     }
 
     /// Saves the tokens into the database
@@ -178,7 +178,7 @@ impl TokenStore {
 
     /// Returns the token store entry for a given request token
     pub fn get_by_request_token(&self, request_token: &String) -> Option<&TokenStoreEntry> {
-        let user_id = get_user_id_from_token(&request_token);
+        let user_id = get_user_id_from_token(&request_token)?;
         if let Some(user_tokens) = self.tokens.get(&user_id) {
             user_tokens.iter().find(|e| {
                 if let Some(token) = e.request_token() {
@@ -194,7 +194,7 @@ impl TokenStore {
 
     /// Returns the token store entry by the given refresh token
     pub fn get_by_refresh_token(&self, refresh_token: &String) -> Option<&TokenStoreEntry> {
-        let user_id = get_user_id_from_token(&refresh_token);
+        let user_id = get_user_id_from_token(&refresh_token)?;
         if let Some(user_tokens) = self.tokens.get(&user_id) {
             user_tokens.iter().find(|e| {
                 if let Some(token) = e.refresh_token() {
@@ -212,7 +212,7 @@ impl TokenStore {
     /// Also clears all expired token entries.
     pub fn set_request_token(&mut self, refresh_token: &String, request_token: &String) {
         self.clear_expired();
-        let user_id = get_user_id_from_token(&request_token);
+        let user_id = get_user_id_from_token(&request_token).unwrap();
         if let Some(user_tokens) = self.tokens.get_mut(&user_id) {
             user_tokens.iter_mut().for_each(|e| {
                 if let Some(ref_token) = &e.refresh_token() {
@@ -226,7 +226,8 @@ impl TokenStore {
 
     /// Inserts a new pair of request and refresh token
     pub fn insert(&mut self, request_token: &String, refresh_token: &String) -> Result<(), String> {
-        let user_id = get_user_id_from_token(refresh_token);
+        let user_id =
+            get_user_id_from_token(refresh_token).ok_or("Invalid request token".to_string())?;
         let user_tokens = if let Some(user_tokens) = self.tokens.get_mut(&user_id) {
             user_tokens
         } else {

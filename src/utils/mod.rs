@@ -29,9 +29,13 @@ pub fn create_user_token(user_id: i32) -> [u8; TOKEN_LENGTH] {
 }
 
 /// Extracts the userId from a request token
-pub fn get_user_id_from_token(token: &String) -> i32 {
-    let token = base64::decode(&token).unwrap();
-    BigEndian::read_i32(token.as_slice())
+pub fn get_user_id_from_token(token: &String) -> Option<i32> {
+    let token = base64::decode(&token).ok()?;
+    if token.len() > 4 {
+        Some(BigEndian::read_i32(token.as_slice()))
+    } else {
+        None
+    }
 }
 
 /// Hashes a password with a salt by using BCrypt

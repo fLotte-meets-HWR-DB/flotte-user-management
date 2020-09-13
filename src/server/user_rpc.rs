@@ -161,7 +161,8 @@ impl UserRpcServer {
         {
             return Err(ErrorMessage::new("Invalid request token".to_string()));
         }
-        let user_id = get_user_id_from_token(&message.token);
+        let user_id = get_user_id_from_token(&message.token)
+            .ok_or(ErrorMessage::new("Invalid request token".to_string()))?;
         let response_data = database.user_roles.by_user(user_id)?;
 
         Ok(Message::new_with_serialize(GET_ROLES, response_data))
