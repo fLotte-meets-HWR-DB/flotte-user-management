@@ -65,6 +65,7 @@ impl UserRpcServer {
                     CREATE_PERMISSION => {
                         Self::handle_create_permissions(database, &handler.message.data)
                     }
+                    GET_USER_ID => Self::handle_get_user_id(&handler.message.data),
                     _ => Err(ErrorMessage::new("Invalid Method".to_string())),
                 }
                 .unwrap_or_else(|e| Message::new_with_serialize(ERROR, e));
@@ -125,6 +126,12 @@ impl UserRpcServer {
                     CREATE_PERMISSION,
                     "Creates all given permissions if they don't exist.",
                     "{permissions: [{name: String, description: String}]}",
+                ),
+                InfoEntry::new(
+                    "get user id",
+                    GET_USER_ID,
+                    "Returns the userId for a token",
+                    "{token: String}",
                 ),
             ],
         ))
@@ -192,5 +199,17 @@ impl UserRpcServer {
             .create_permissions(message.permissions)?;
 
         Ok(Message::new_with_serialize(CREATE_PERMISSION, permissions))
+    }
+
+    /// Returns the userId for a request token
+    fn handle_get_user_id(data: &Vec<u8>) -> RpcResult<Message> {
+        log::trace!("Get User ID");
+        let message = TokenRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
+            .map_err(|e| ErrorMessage::new(e.to_string()))?;
+        Ok(Message::new_with_serialize(
+            GET_USER_ID,
+            get_user_id_from_token(&message.token)
+                .ok_or(ErrorMessage::new("Invalid request token".to_string()))?,
+        ))
     }
 }
