@@ -1,8 +1,9 @@
 use crate::database::Database;
-use crate::server::messages::{LoginMessage, RefreshMessage};
+use crate::server::messages::{LoginMessage, LogoutConfirmation, LogoutMessage, RefreshMessage};
 use crate::utils::error::DBError;
 use rouille::{Request, Response, Server};
 use serde::export::Formatter;
+use serde::Serialize;
 use std::error::Error;
 use std::fmt::{self, Display};
 use std::io::Read;
@@ -16,10 +17,10 @@ pub struct UserHttpServer {
     database: Database,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct HTTPError {
     message: String,
-    code: u16,
+    error_code: u16,
 }
 
 impl Display for HTTPError {
@@ -33,20 +34,23 @@ impl From<DBError> for HTTPError {
     fn from(other: DBError) -> Self {
         Self {
             message: other.to_string(),
-            code: 400,
+            error_code: 400,
         }
     }
 }
 
 impl Into<Response> for HTTPError {
     fn into(self) -> Response {
-        Response::text(self.message).with_status_code(self.code)
+        Response::json(&self).with_status_code(self.error_code)
     }
 }
 
 impl HTTPError {
     pub fn new(message: String, code: u16) -> Self {
-        Self { message, code }
+        Self {
+            message,
+            error_code: code,
+        }
     }
 }
 
@@ -69,10 +73,13 @@ impl UserHttpServer {
         let server = Server::new(&listen_address, move |request| {
             router!(request,
                 (POST) (/login) => {
-                    Self::login(&database, request).unwrap_or_else(|e|e.into())
+                    Self::login(&database, request).unwrap_or_else(HTTPError::into)
                 },
                 (POST) (/new-token) => {
-                    Self::new_token(&database, request).unwrap_or_else(|e|e.into())
+                    Self::new_token(&database, request).unwrap_or_else(HTTPError::into)
+                },
+                (POST) (/logout) => {
+                    Self::logout(&database, request).unwrap_or_else(HTTPError::into)
                 },
                 _ => Response::empty_404()
             )
@@ -84,36 +91,44 @@ impl UserHttpServer {
 
     /// Handles the login part of the REST api
     fn login(database: &Database, request: &Request) -> HTTPResult<Response> {
-        if let Some(mut data) = request.data() {
-            let mut data_string = String::new();
-            data.read_to_string(&mut data_string)
-                .map_err(|_| HTTPError::new("Failed to read request data".to_string(), 500))?;
-            let login_request: LoginMessage = serde_json::from_str(data_string.as_str())
+        let login_request: LoginMessage =
+            serde_json::from_str(parse_string_body(request)?.as_str())
                 .map_err(|e| HTTPError::new(e.to_string(), 400))?;
-            let tokens = database
-                .users
-                .create_tokens(&login_request.email, &login_request.password)?;
 
-            Ok(Response::json(&tokens))
-        } else {
-            Err(HTTPError::new("Missing Request Data".to_string(), 400))
-        }
+        let tokens = database
+            .users
+            .create_tokens(&login_request.email, &login_request.password)?;
+
+        Ok(Response::json(&tokens).with_status_code(201))
     }
 
     /// Handles the new token part of the rest api
     fn new_token(database: &Database, request: &Request) -> HTTPResult<Response> {
-        if let Some(mut data) = request.data() {
-            let mut data_string = String::new();
-            data.read_to_string(&mut data_string)
-                .map_err(|_| HTTPError::new("Failed to read request data".to_string(), 500))?;
-            let message: RefreshMessage = serde_json::from_str(data_string.as_str())
-                .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+        let message: RefreshMessage = serde_json::from_str(parse_string_body(request)?.as_str())
+            .map_err(|e| HTTPError::new(e.to_string(), 400))?;
 
-            let tokens = database.users.refresh_tokens(&message.refresh_token)?;
+        let tokens = database.users.refresh_tokens(&message.refresh_token)?;
 
-            Ok(Response::json(&tokens))
-        } else {
-            Err(HTTPError::new("Missing Request Data".to_string(), 400))
-        }
+        Ok(Response::json(&tokens))
     }
+
+    fn logout(database: &Database, request: &Request) -> HTTPResult<Response> {
+        let message: LogoutMessage = serde_json::from_str(parse_string_body(request)?.as_str())
+            .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+        let success = database.users.delete_tokens(&message.request_token)?;
+
+        Ok(Response::json(&LogoutConfirmation { success }).with_status_code(205))
+    }
+}
+
+/// Parses the body of a http request into a string representation
+fn parse_string_body(request: &Request) -> HTTPResult<String> {
+    let mut body = request
+        .data()
+        .ok_or(HTTPError::new("Missing request data!".to_string(), 400))?;
+    let mut string_body = String::new();
+    body.read_to_string(&mut string_body)
+        .map_err(|e| HTTPError::new(format!("Failed to parse request data {}", e), 400))?;
+
+    Ok(string_body)
 }

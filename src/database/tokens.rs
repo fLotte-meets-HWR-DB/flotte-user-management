@@ -109,9 +109,9 @@ impl TokenStoreEntry {
     /// If the token is expired -1 is returned.
     pub fn request_ttl(&self) -> i32 {
         max(
-            (self.request_ttl - self.ttl_start.elapsed().as_secs() as u32) as i32,
+            self.request_ttl as i64 - self.ttl_start.elapsed().as_secs() as i64,
             -1,
-        )
+        ) as i32
     }
 
     /// Returns the ttl for the refresh token
@@ -119,9 +119,9 @@ impl TokenStoreEntry {
     /// If the token is expired -1 is returned.
     pub fn refresh_ttl(&self) -> i32 {
         max(
-            (self.refresh_ttl - self.ttl_start.elapsed().as_secs() as u32) as i32,
+            self.refresh_ttl as i64 - self.ttl_start.elapsed().as_secs() as i64,
             -1,
-        )
+        ) as i32
     }
 
     /// Returns the request token if it hasn't expired
@@ -162,6 +162,13 @@ impl TokenStoreEntry {
         self.refresh_ttl = min(self.refresh_ttl(), 0) as u32;
         self.ttl_start = Instant::now();
     }
+
+    /// Invalidates the token entry which causes it to be deleted with the next
+    /// clearing of expired tokens by the token store. The
+    pub(crate) fn invalidate(&mut self) {
+        self.request_ttl = 0;
+        self.refresh_ttl = 0;
+    }
 }
 
 #[derive(Debug)]
@@ -177,10 +184,10 @@ impl TokenStore {
     }
 
     /// Returns the token store entry for a given request token
-    pub fn get_by_request_token(&self, request_token: &String) -> Option<&TokenStoreEntry> {
+    pub fn get_by_request_token(&mut self, request_token: &String) -> Option<&mut TokenStoreEntry> {
         let user_id = get_user_id_from_token(&request_token)?;
-        if let Some(user_tokens) = self.tokens.get(&user_id) {
-            user_tokens.iter().find(|e| {
+        if let Some(user_tokens) = self.tokens.get_mut(&user_id) {
+            user_tokens.iter_mut().find(|e| {
                 if let Some(token) = e.request_token() {
                     &token == request_token
                 } else {
@@ -193,10 +200,10 @@ impl TokenStore {
     }
 
     /// Returns the token store entry by the given refresh token
-    pub fn get_by_refresh_token(&self, refresh_token: &String) -> Option<&TokenStoreEntry> {
+    pub fn get_by_refresh_token(&mut self, refresh_token: &String) -> Option<&mut TokenStoreEntry> {
         let user_id = get_user_id_from_token(&refresh_token)?;
-        if let Some(user_tokens) = self.tokens.get(&user_id) {
-            user_tokens.iter().find(|e| {
+        if let Some(user_tokens) = self.tokens.get_mut(&user_id) {
+            user_tokens.iter_mut().find(|e| {
                 if let Some(token) = e.refresh_token() {
                     &token == refresh_token
                 } else {

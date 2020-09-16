@@ -97,7 +97,7 @@ impl Users {
     /// Validates a request token and returns if it's valid and the
     /// ttl of the token
     pub fn validate_request_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
-        let store = self.token_store.lock();
+        let mut store = self.token_store.lock();
         let entry = store.get_by_request_token(&token);
 
         if let Some(entry) = entry {
@@ -109,7 +109,7 @@ impl Users {
 
     /// Validates a refresh token and returns if it's valid and the ttl
     pub fn validate_refresh_token(&self, token: &String) -> DatabaseResult<(bool, i32)> {
-        let store = self.token_store.lock();
+        let mut store = self.token_store.lock();
         let entry = store.get_by_refresh_token(&token);
 
         if let Some(entry) = entry {
@@ -131,6 +131,18 @@ impl Users {
             Ok(tokens)
         } else {
             Err(DBError::GenericError("Invalid refresh token!".to_string()))
+        }
+    }
+
+    pub fn delete_tokens(&self, request_token: &String) -> DatabaseResult<bool> {
+        let mut token_store = self.token_store.lock();
+        let tokens = token_store.get_by_request_token(request_token);
+        if let Some(tokens) = tokens {
+            tokens.invalidate();
+
+            Ok(true)
+        } else {
+            Err(DBError::GenericError("Invalid request token!".to_string()))
         }
     }
 

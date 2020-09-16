@@ -88,3 +88,14 @@ pub struct LoginMessage {
 pub struct RefreshMessage {
     pub refresh_token: String,
 }
+
+#[derive(Deserialize, Zeroize)]
+#[zeroize(drop)]
+pub struct LogoutMessage {
+    pub request_token: String,
+}
+
+#[derive(Serialize)]
+pub struct LogoutConfirmation {
+    pub success: bool,
+}
