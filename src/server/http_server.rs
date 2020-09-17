@@ -90,7 +90,13 @@ impl UserHttpServer {
             );
 
             if dotenv::var(ENV_ENABLE_CORS).unwrap_or("false".to_string()) == "true" {
-                response = response.with_additional_header("Access-Control-Allow-Origin", "*");
+                response = response
+                    .with_additional_header("Access-Control-Allow-Origin", "*")
+                    .with_additional_header(
+                        "Access-Control-Allow-Methods",
+                        "GET,HEAD,PUT,PATCH,POST,DELETE",
+                    )
+                    .with_additional_header("Vary", "Access-Control-Request-Headers");
             }
 
             response
