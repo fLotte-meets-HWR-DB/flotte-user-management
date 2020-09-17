@@ -10,6 +10,7 @@ use std::io::Read;
 
 const LISTEN_ADDRESS: &str = "HTTP_SERVER_ADDRESS";
 const DEFAULT_LISTEN_ADDRESS: &str = "127.0.0.1:8080";
+const ENV_ENABLE_CORS: &str = "ENABLE_CORS";
 
 /// The HTTP server of the user management that provides a
 /// REST api for login and requesting tokens
@@ -71,7 +72,7 @@ impl UserHttpServer {
             dotenv::var(LISTEN_ADDRESS).unwrap_or(DEFAULT_LISTEN_ADDRESS.to_string());
         let database = Database::clone(&self.database);
         let server = Server::new(&listen_address, move |request| {
-            router!(request,
+            let mut response = router!(request,
                 (POST) (/login) => {
                     Self::login(&database, request).unwrap_or_else(HTTPError::into)
                 },
@@ -82,7 +83,13 @@ impl UserHttpServer {
                     Self::logout(&database, request).unwrap_or_else(HTTPError::into)
                 },
                 _ => Response::empty_404()
-            )
+            );
+
+            if dotenv::var(ENV_ENABLE_CORS).unwrap_or("false".to_string()) == "true" {
+                response = response.with_additional_header("Access-Control-Allow-Origin", "*");
+            }
+
+            response
         })
         .unwrap();
         log::info!("HTTP-Server running on {}", listen_address);
