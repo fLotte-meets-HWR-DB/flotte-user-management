@@ -96,14 +96,14 @@ impl UserHttpServer {
                         "Access-Control-Allow-Methods",
                         "GET,HEAD,PUT,PATCH,POST,DELETE",
                     )
-                    .with_additional_header("Vary", "Access-Control-Request-Headers")
-                    .with_additional_header(
-                        "Access-Control-Request-Headers",
-                        request
-                            .header("Access-Control-Request-Headers")
-                            .unwrap_or("content-type")
-                            .to_string(),
+                    .with_additional_header("Vary", "Access-Control-Allow-Headers");
+
+                if let Some(request_headers) = request.header("Access-Control-Request-Headers") {
+                    response = response.with_additional_header(
+                        "Access-Control-Allow-Headers",
+                        request_headers.to_string(),
                     );
+                }
             }
 
             response
