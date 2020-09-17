@@ -82,7 +82,11 @@ impl UserHttpServer {
                 (POST) (/logout) => {
                     Self::logout(&database, request).unwrap_or_else(HTTPError::into)
                 },
-                _ => Response::empty_404()
+                _ => if request.method() == "OPTIONS" {
+                    Response::empty_204()
+                } else {
+                    Response::empty_404()
+                }
             );
 
             if dotenv::var(ENV_ENABLE_CORS).unwrap_or("false".to_string()) == "true" {
