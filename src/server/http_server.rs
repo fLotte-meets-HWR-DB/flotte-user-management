@@ -96,7 +96,14 @@ impl UserHttpServer {
                         "Access-Control-Allow-Methods",
                         "GET,HEAD,PUT,PATCH,POST,DELETE",
                     )
-                    .with_additional_header("Vary", "Access-Control-Request-Headers");
+                    .with_additional_header("Vary", "Access-Control-Request-Headers")
+                    .with_additional_header(
+                        "Access-Control-Request-Headers",
+                        request
+                            .header("Access-Control-Request-Headers")
+                            .unwrap_or("content-type")
+                            .to_string(),
+                    );
             }
 
             response
