@@ -9,7 +9,7 @@ git:
   submodules: false
 
 before_install:
-  - echo -e "machine github.com\n  login $GIT_USER\n  password $GIT_PW" > ~/.netrc
+  - echo -e "machine github.com\n  login $"GIT_USER"\n  password $"GIT_PW > ~/.netrc
   - git submodule update --init --recursive
 
 script:
