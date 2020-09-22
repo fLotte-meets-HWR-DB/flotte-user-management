@@ -1,5 +1,7 @@
 # fLotte User Management Server
 
+[![Build Status](https://travis-ci.com/flotte-goes-smart/flotte-user-management.svg?token=YfRmpHAXqyUafCgSEexw&branch=main)](https://travis-ci.com/flotte-goes-smart/flotte-user-management)
+
 ## Dev Requirements
 
 - a full rust toolchain installation (for example with [rustup](https://rustup.rs/))
