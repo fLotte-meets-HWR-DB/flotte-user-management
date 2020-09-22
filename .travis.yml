@@ -5,8 +5,12 @@ language: bash
 services:
   - docker
 
+git:
+  submodules: false
+
 before_install:
   - echo -e "machine github.com\n  login $GIT_USER\n  password $GIT_PW" > ~/.netrc
+  - git submodule update --init --recursive
 
 script:
   - docker login -u="$DOCKER_USER" -p="$DOCKER_PW" https://flotte-docker-registry.spdns.org/
