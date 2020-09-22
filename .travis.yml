@@ -5,6 +5,9 @@ language: bash
 services:
   - docker
 
+before_install:
+  - echo -e "machine github.com\n  login $GIT_USER\n  password $GIT_PW" > ~/.netrc
+
 script:
   - docker login -u="$DOCKER_USER" -p="$DOCKER_PW" https://flotte-docker-registry.spdns.org/
   - docker build -t flotte-user-managment .
