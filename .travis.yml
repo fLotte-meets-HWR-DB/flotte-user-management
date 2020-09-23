@@ -10,8 +10,9 @@ git:
 
 before_install:
   - echo -e "machine github.com\n  login $"GIT_USER"\n  password $"GIT_PW > ~/.netrc
-  - git submodule add https://github.com/flotte-goes-smart/msg-rpc.git
-
+  - git submodule set-url msg-rpc https://github.com/flotte-goes-smart/msg-rpc.git
+  - git submodule init
+  - git submodule update
 script:
   - docker login -u="$DOCKER_USER" -p="$DOCKER_PW" https://flotte-docker-registry.spdns.org/
   - docker build -t flotte-user-managment .
