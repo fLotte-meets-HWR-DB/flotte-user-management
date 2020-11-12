@@ -1,10 +1,6 @@
 name: Run Cargo Audit
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
   schedule:
     - cron: '0 0 * * *'
 
@@ -12,7 +8,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  audit:
 
     runs-on: ubuntu-latest
 
