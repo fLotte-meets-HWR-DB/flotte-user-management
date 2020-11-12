@@ -749,6 +749,8 @@ dependencies = [
 [[package]]
 name = "msgrpc"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2c9ab14ffdc24ae56e7a173832111a2e30bd61ec098fef8ece268173e4ef56b"
 dependencies = [
  "byteorder",
  "crc",
