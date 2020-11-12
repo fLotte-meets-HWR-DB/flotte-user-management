@@ -96,7 +96,7 @@ impl UserHttpServer {
                         "Access-Control-Allow-Methods",
                         "GET,HEAD,PUT,PATCH,POST,DELETE",
                     )
-                    .with_additional_header("Vary", "Access-Control-Allow-Headers");
+                    .with_additional_header("Vary", "Access-Control-Request-Headers");
 
                 if let Some(request_headers) = request.header("Access-Control-Request-Headers") {
                     response = response.with_additional_header(
