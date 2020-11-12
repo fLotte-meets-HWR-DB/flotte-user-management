@@ -8,7 +8,6 @@ RUN USER=root cargo new flotte-user-management
 WORKDIR /usr/src/flotte-user-management
 COPY Cargo.toml Cargo.lock ./
 
-COPY msg-rpc ./msg-rpc
 RUN cargo build --release
 COPY src ./src
 RUN cargo install --target x86_64-unknown-linux-musl --path .
