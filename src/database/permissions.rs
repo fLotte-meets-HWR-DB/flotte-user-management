@@ -1,6 +1,14 @@
 use crate::database::models::{CreatePermissionsEntry, Permission};
 use crate::database::{DatabaseResult, PostgresPool, Table, ADMIN_ROLE_NAME};
-use crate::utils::error::DBError;
+
+pub(crate) const CREATE_ROLE_PERMISSION: &str = "ROLE_CREATE";
+pub(crate) const UPDATE_ROLE_PERMISSION: &str = "ROLE_UPDATE";
+pub(crate) const DELETE_ROLE_PERMISSION: &str = "ROLE_DELETE";
+pub(crate) const DEFAULT_PERMISSIONS: &[(&'static str, &'static str)] = &[
+    (CREATE_ROLE_PERMISSION, "Allows the user to create roles"),
+    (UPDATE_ROLE_PERMISSION, "Allows the user to update roles"),
+    (DELETE_ROLE_PERMISSION, "Allows the user to delete roles"),
+];
 
 /// The permissions table that stores defined
 #[derive(Clone)]
@@ -14,16 +22,15 @@ impl Table for Permissions {
     }
 
     fn init(&self) -> DatabaseResult<()> {
-        self.pool
-            .get()?
-            .batch_execute(
-                "CREATE TABLE IF NOT EXISTS permissions (
+        self.pool.get()?.batch_execute(
+            "CREATE TABLE IF NOT EXISTS permissions (
                         id              SERIAL PRIMARY KEY,
                         name            VARCHAR(128) UNIQUE NOT NULL,
                         description     VARCHAR(512)
                     );",
-            )
-            .map_err(DBError::from)
+        )?;
+
+        Ok(())
     }
 }
 

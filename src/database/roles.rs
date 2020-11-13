@@ -50,6 +50,20 @@ impl Roles {
         if exists.is_some() {
             return Err(DBError::RecordExists);
         }
+        let permissions_exist = connection.query(
+            "SELECT id FROM permissions WHERE permissions.id = ANY ($1)",
+            &[&permissions],
+        )?;
+        if permissions_exist.len() != permissions.len() {
+            return Err(DBError::GenericError(format!(
+                "Not all provided permissions exist! Existing permissions: {:?}",
+                permissions_exist
+                    .iter()
+                    .map(|row| -> i32 { row.get(0) })
+                    .collect::<Vec<i32>>()
+            )));
+        }
+
         log::trace!("Preparing transaction");
         let admin_email = dotenv::var(ENV_ADMIN_EMAIL).unwrap_or(DEFAULT_ADMIN_EMAIL.to_string());
         let mut transaction = connection.transaction()?;

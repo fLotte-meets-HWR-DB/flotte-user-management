@@ -146,6 +146,23 @@ impl Users {
         }
     }
 
+    /// Returns if the user has the given permission
+    pub fn has_permission(&self, id: i32, permission: &str) -> DatabaseResult<bool> {
+        let mut connection = self.pool.get()?;
+        let row = connection.query_opt(
+            "\
+            SELECT * FROM user_roles, role_permissions, permissions
+            WHERE user_roles.user_id = $1 
+            AND user_roles.role_id = role_permissions.role_id
+            AND role_permissions.permission_id = permissions.id
+            AND permissions.name = $2
+            LIMIT 1
+        ",
+            &[&id, &permission],
+        )?;
+        Ok(row.is_some())
+    }
+
     /// Validates the login data of the user by creating the hash for the given password
     /// and comparing it with the database entry
     fn validate_login(&self, email: &String, password: &String) -> DatabaseResult<bool> {

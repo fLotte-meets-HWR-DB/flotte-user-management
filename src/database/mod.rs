@@ -1,4 +1,5 @@
-use crate::database::permissions::Permissions;
+use crate::database::models::CreatePermissionsEntry;
+use crate::database::permissions::{Permissions, DEFAULT_PERMISSIONS};
 use crate::database::role_permissions::RolePermissions;
 use crate::database::roles::Roles;
 use crate::database::user_roles::UserRoles;
@@ -24,7 +25,7 @@ const DEFAULT_ADMIN_PASSWORD: &str = "flotte-admin";
 const DEFAULT_ADMIN_EMAIL: &str = "admin@flotte-berlin.de";
 const ENV_ADMIN_PASSWORD: &str = "ADMIN_PASSWORD";
 const ENV_ADMIN_EMAIL: &str = "ADMIN_EMAIL";
-const ADMIN_ROLE_NAME: &str = "SUPERADMIN";
+pub(crate) const ADMIN_ROLE_NAME: &str = "SUPERADMIN";
 
 pub trait Table {
     fn new(pool: PostgresPool) -> Self;
@@ -87,6 +88,15 @@ impl Database {
         ) {
             log::debug!("Failed to create admin role {}", e.to_string())
         }
+        self.permissions.create_permissions(
+            DEFAULT_PERMISSIONS
+                .iter()
+                .map(|(name, description)| CreatePermissionsEntry {
+                    name: name.to_string(),
+                    description: description.to_string(),
+                })
+                .collect(),
+        )?;
         log::info!("Database fully initialized!");
 
         Ok(())

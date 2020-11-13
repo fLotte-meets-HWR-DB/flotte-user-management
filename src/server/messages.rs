@@ -1,4 +1,4 @@
-use crate::database::models::CreatePermissionsEntry;
+use crate::database::models::{CreatePermissionsEntry, Permission};
 use crate::utils::error::DBError;
 use serde::export::Formatter;
 use serde::{Deserialize, Serialize};
@@ -98,4 +98,11 @@ pub struct LogoutMessage {
 #[derive(Serialize)]
 pub struct LogoutConfirmation {
     pub success: bool,
+}
+
+#[derive(Serialize)]
+pub struct CreateRoleResponse {
+    pub id: i32,
+    pub name: String,
+    pub permissions: Vec<Permission>,
 }

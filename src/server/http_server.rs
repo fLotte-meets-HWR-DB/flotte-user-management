@@ -1,6 +1,12 @@
+use crate::database::permissions::CREATE_ROLE_PERMISSION;
 use crate::database::Database;
-use crate::server::messages::{LoginMessage, LogoutConfirmation, LogoutMessage, RefreshMessage};
+use crate::server::messages::{
+    CreateRoleRequest, CreateRoleResponse, LoginMessage, LogoutConfirmation, LogoutMessage,
+    RefreshMessage,
+};
 use crate::utils::error::DBError;
+use crate::utils::get_user_id_from_token;
+use regex::Regex;
 use rouille::{Request, Response, Server};
 use serde::export::Formatter;
 use serde::Serialize;
@@ -82,6 +88,9 @@ impl UserHttpServer {
                 (POST) (/logout) => {
                     Self::logout(&database, request).unwrap_or_else(HTTPError::into)
                 },
+                (POST)(/roles/create) => {
+                    Self::create_role(&database, request).unwrap_or_else(HTTPError::into)
+                },
                 _ => if request.method() == "OPTIONS" {
                     Response::empty_204()
                 } else {
@@ -143,6 +152,27 @@ impl UserHttpServer {
 
         Ok(Response::json(&LogoutConfirmation { success }).with_status_code(205))
     }
+
+    fn create_role(database: &Database, request: &Request) -> HTTPResult<Response> {
+        let (_token, id) = validate_request_token(request, database)?;
+        if !database.users.has_permission(id, CREATE_ROLE_PERMISSION)? {
+            return Err(HTTPError::new("Insufficient permissions".to_string(), 403));
+        }
+        let message: CreateRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
+            .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+        let role =
+            database
+                .roles
+                .create_role(message.name, message.description, message.permissions)?;
+        let permissions = database.role_permission.by_role(role.id)?;
+
+        Ok(Response::json(&CreateRoleResponse {
+            id: role.id,
+            permissions,
+            name: role.name,
+        })
+        .with_status_code(201))
+    }
 }
 
 /// Parses the body of a http request into a string representation
@@ -155,4 +185,23 @@ fn parse_string_body(request: &Request) -> HTTPResult<String> {
         .map_err(|e| HTTPError::new(format!("Failed to parse request data {}", e), 400))?;
 
     Ok(string_body)
+}
+
+/// Parses and validates the request token from the http header
+fn validate_request_token(request: &Request, database: &Database) -> HTTPResult<(String, i32)> {
+    lazy_static::lazy_static! {static ref BEARER_REGEX: Regex = Regex::new(r"^[bB]earer\s+").unwrap();}
+    let token = request
+        .header("authorization")
+        .ok_or(HTTPError::new("401 Unauthorized".to_string(), 401))?;
+    let token = BEARER_REGEX.replace(token, "");
+    let (valid, _) = database.users.validate_request_token(&token.to_string())?;
+    if !valid {
+        Err(HTTPError::new("Invalid request token".to_string(), 401))
+    } else {
+        Ok((
+            token.to_string(),
+            get_user_id_from_token(&token.to_string())
+                .ok_or(HTTPError::new("Invalid request token".to_string(), 401))?,
+        ))
+    }
 }
