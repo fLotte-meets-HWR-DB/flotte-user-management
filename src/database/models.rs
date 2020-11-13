@@ -31,7 +31,7 @@ impl UserRecord {
 
 /// A row of the permission table that can be serialized and sent
 /// via the rcp connection
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Permission {
     pub id: i32,
     pub name: String,
@@ -40,7 +40,7 @@ pub struct Permission {
 
 /// A row of the role table that can be serialized and sent
 /// via the rcp connection
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, JsonSchema)]
 pub struct Role {
     pub id: i32,
     pub name: String,

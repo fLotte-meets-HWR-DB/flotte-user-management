@@ -2,6 +2,7 @@
 //  Copyright (C) 2020 trivernis
 //  See LICENSE for more information
 
+pub mod documentation;
 pub mod http_server;
 pub mod messages;
 pub mod rpc_methods;

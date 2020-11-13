@@ -15,7 +15,7 @@ const REQUEST_TOKEN_EXPIRE_SECONDS: u32 = 60 * 10;
 const REFRESH_TOKEN_EXPIRE_SECONDS: u32 = 60 * 60 * 24;
 
 /// A struct to store session tokens of a user in a API-readable format
-#[derive(Clone, Debug, Zeroize, Serialize)]
+#[derive(Clone, Debug, Zeroize, Serialize, JsonSchema)]
 #[zeroize(drop)]
 pub struct SessionTokens {
     pub request_token: String,

@@ -11,10 +11,13 @@ use rouille::{Request, Response, Server};
 use serde::export::Formatter;
 use serde::Serialize;
 
+use crate::database::models::Role;
 use crate::database::permissions::{
     CREATE_ROLE_PERMISSION, UPDATE_ROLE_PERMISSION, VIEW_ROLE_PERMISSION,
 };
+use crate::database::tokens::SessionTokens;
 use crate::database::Database;
+use crate::server::documentation::RESTDocumentation;
 use crate::server::messages::{
     ErrorMessage, FullRoleData, LoginMessage, LogoutConfirmation, LogoutMessage, ModifyRoleRequest,
     RefreshMessage,
@@ -97,6 +100,9 @@ impl UserHttpServer {
         let database = Database::clone(&self.database);
         let server = Server::new(&listen_address, move |request| {
             let mut response = router!(request,
+                (GET) (/info) => {
+                    Self::info(request).unwrap_or_else(HTTPError::into)
+                },
                 (POST) (/login) => {
                     Self::login(&database, request).unwrap_or_else(HTTPError::into)
                 },
@@ -147,6 +153,51 @@ impl UserHttpServer {
         .unwrap();
         log::info!("HTTP-Server running on {}", listen_address);
         server.run()
+    }
+
+    fn build_docs() -> Result<RESTDocumentation, serde_json::Error> {
+        let mut doc = RESTDocumentation::new("/info");
+        doc.add_path::<LoginMessage, SessionTokens>(
+            "/login",
+            "POST",
+            "Returns request and refresh tokens",
+        )?;
+        doc.add_path::<RefreshMessage, SessionTokens>(
+            "/new-token",
+            "POST",
+            "Returns a new request token",
+        )?;
+        doc.add_path::<LogoutMessage, LogoutConfirmation>(
+            "/logout",
+            "POST",
+            "Invalidates the refresh and request tokens",
+        )?;
+        doc.add_path::<(), FullRoleData>(
+            "/roles/{name:String}",
+            "GET",
+            "Returns the role with the given name",
+        )?;
+        doc.add_path::<(), Vec<Role>>("/roles", "GET", "Returns a list of all roles")?;
+        doc.add_path::<ModifyRoleRequest, FullRoleData>(
+            "/roles/create",
+            "POST",
+            "Creates a new role",
+        )?;
+        doc.add_path::<ModifyRoleRequest, FullRoleData>(
+            "/roles/update",
+            "POST",
+            "Updates an existing role",
+        )?;
+
+        Ok(doc)
+    }
+
+    fn info(request: &Request) -> HTTPResult<Response> {
+        lazy_static::lazy_static! {static ref DOCS: RESTDocumentation = UserHttpServer::build_docs().unwrap();}
+
+        Ok(Response::html(
+            DOCS.get(request.get_param("path").unwrap_or("/".to_string())),
+        ))
     }
 
     /// Handles the login part of the REST api

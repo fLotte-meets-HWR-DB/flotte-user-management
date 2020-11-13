@@ -71,7 +71,7 @@ pub struct GetPermissionsRequest {
     pub roles: Vec<i32>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, JsonSchema)]
 pub struct ModifyRoleRequest {
     pub name: String,
     pub description: Option<String>,
@@ -83,31 +83,31 @@ pub struct CreatePermissionsRequest {
     pub permissions: Vec<CreatePermissionsEntry>,
 }
 
-#[derive(Deserialize, Zeroize)]
+#[derive(Deserialize, Zeroize, JsonSchema)]
 #[zeroize(drop)]
 pub struct LoginMessage {
     pub email: String,
     pub password: String,
 }
 
-#[derive(Deserialize, Zeroize)]
+#[derive(Deserialize, Zeroize, JsonSchema)]
 #[zeroize(drop)]
 pub struct RefreshMessage {
     pub refresh_token: String,
 }
 
-#[derive(Deserialize, Zeroize)]
+#[derive(Deserialize, Zeroize, JsonSchema)]
 #[zeroize(drop)]
 pub struct LogoutMessage {
     pub request_token: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, JsonSchema)]
 pub struct LogoutConfirmation {
     pub success: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, JsonSchema)]
 pub struct FullRoleData {
     pub id: i32,
     pub name: String,

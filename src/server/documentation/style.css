@@ -1,0 +1,22 @@
+/*
+ *  flotte-user-management server for managing users, roles and permissions
+ *  Copyright (C) 2020 trivernis
+ *  See LICENSE for more information
+ */
+
+body {
+    font-family: "Fira Sans", "Noto Sans", sans-serif;
+}
+
+code > pre {
+    font-family: "Fira Code", "DejaVu Sans Mono", monospace;
+    max-width: 100%;
+    padding: 2em;
+    border: 2px solid #EEE;
+    overflow: auto;
+}
+
+a {
+    font-weight: bold;
+    font-size: 1.5em;
+}
