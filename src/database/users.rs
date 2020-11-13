@@ -7,7 +7,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use zeroize::{Zeroize, Zeroizing};
 
-use crate::database::models::UserRecord;
+use crate::database::models::{UserInformation, UserRecord};
 use crate::database::tokens::{SessionTokens, TokenStore};
 use crate::database::user_roles::UserRoles;
 use crate::database::{DatabaseResult, PostgresPool, Table};
@@ -78,6 +78,105 @@ impl Users {
         Ok(UserRecord::from_ordered_row(&row))
     }
 
+    pub fn update_user(
+        &self,
+        old_email: &String,
+        name: &String,
+        email: &String,
+        password: &Option<String>,
+    ) -> DatabaseResult<UserInformation> {
+        log::trace!(
+            "Updating user {} with new entries name: {},  email: {}",
+            old_email,
+            name,
+            email
+        );
+        let mut connection = self.pool.get()?;
+        if connection
+            .query_opt("SELECT email FROM users WHERE email = $1", &[&old_email])?
+            .is_none()
+        {
+            log::trace!("Failed to create user: Record doesn't exist!");
+            return Err(DBError::RecordDoesNotExist);
+        }
+        if old_email != email
+            && connection
+                .query_opt("SELECT email FROM users WHERE email = $1", &[&email])?
+                .is_some()
+        {
+            log::trace!("Failed to create user: New Record exists!");
+            return Err(DBError::GenericError(format!(
+                "A user for the email {} already exists!",
+                email
+            )));
+        }
+        let new_record = if let Some(password) = password {
+            let salt = Zeroizing::new(create_salt());
+            let pw_hash =
+                hash_password(password.as_bytes(), &*salt).map_err(|e| DBError::GenericError(e))?;
+            connection.query_one(
+                "UPDATE users SET name = $1, email = $2, password_hash = $3, salt = $4 WHERE email = $5 RETURNING *",
+                &[&name, &email, &pw_hash.to_vec(), &salt.to_vec(), &old_email],
+            )?
+        } else {
+            connection.query_one(
+                "UPDATE users SET name = $1, email = $2 WHERE email = $3 RETURNING *",
+                &[&name, &email, &old_email],
+            )?
+        };
+
+        Ok(serde_postgres::from_row::<UserInformation>(&new_record)?)
+    }
+
+    /// Returns information about a user by Id
+    pub fn get_user(&self, id: i32) -> DatabaseResult<UserInformation> {
+        log::trace!("Looking up entry for user with id {}", id);
+        let mut connection = self.pool.get()?;
+        let result = connection
+            .query_opt("SELECT id, name, email FROM users WHERE id = $1", &[&id])?
+            .ok_or(DBError::RecordDoesNotExist)?;
+
+        Ok(serde_postgres::from_row::<UserInformation>(&result)?)
+    }
+
+    pub fn get_user_by_email(&self, email: &String) -> DatabaseResult<UserInformation> {
+        log::trace!("Looking up entry for user with email {}", email);
+        let mut connection = self.pool.get()?;
+        let result = connection
+            .query_opt(
+                "SELECT id, name, email FROM users WHERE email = $1",
+                &[email],
+            )?
+            .ok_or(DBError::RecordDoesNotExist)?;
+
+        Ok(serde_postgres::from_row::<UserInformation>(&result)?)
+    }
+
+    pub fn get_users(&self) -> DatabaseResult<Vec<UserInformation>> {
+        log::trace!("Returning a list of all users...");
+        let mut connection = self.pool.get()?;
+        let results = connection.query("SELECT id, name, email FROM users", &[])?;
+        let mut users = Vec::new();
+
+        for result in results {
+            users.push(serde_postgres::from_row::<UserInformation>(&result)?);
+        }
+
+        Ok(users)
+    }
+
+    pub fn delete_user(&self, email: &String) -> DatabaseResult<()> {
+        log::trace!("Deleting user with email {}", email);
+        let mut connection = self.pool.get()?;
+        let exists = connection.query_opt("SELECT id FROM users WHERE email = $1", &[email])?;
+        if exists.is_none() {
+            return Err(DBError::RecordDoesNotExist);
+        }
+        connection.query("DELETE FROM users WHERE email = $1", &[email])?;
+
+        Ok(())
+    }
+
     /// Creates new tokens for a user login that can be used by services
     /// that need those tokens to verify a user login
     pub fn create_tokens(
@@ -85,6 +184,7 @@ impl Users {
         email: &String,
         password: &String,
     ) -> DatabaseResult<SessionTokens> {
+        log::trace!("Creating new tokens for user with email {}", email);
         if self.validate_login(&email, password)? {
             let mut connection = self.pool.get()?;
             let row = connection.query_one("SELECT id FROM users WHERE email = $1", &[&email])?;
@@ -170,7 +270,7 @@ impl Users {
 
     /// Validates the login data of the user by creating the hash for the given password
     /// and comparing it with the database entry
-    fn validate_login(&self, email: &String, password: &String) -> DatabaseResult<bool> {
+    pub fn validate_login(&self, email: &String, password: &String) -> DatabaseResult<bool> {
         let mut connection = self.pool.get()?;
         let row = connection
             .query_opt(

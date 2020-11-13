@@ -23,7 +23,6 @@ impl RESTDocumentation {
     }
 
     pub fn get(&self, path: String) -> String {
-        log::trace!("Rendering help for {}.", path);
         format!(
             "<html><head><style type='text/css'>{}</style></head><body>{}</body></html>",
             include_str!("style.css"),
@@ -47,6 +46,7 @@ impl RESTDocumentation {
         method: &str,
         description: &str,
     ) -> Result<(), serde_json::error::Error> {
+        log::trace!("Prerendering documentation for {}", path);
         let input_schema = schema_for!(I);
         let output_schema = schema_for!(O);
 
@@ -65,6 +65,8 @@ impl RESTDocumentation {
             self.base_path, method, path, description, input_json, output_json
         );
         self.paths.insert(path.to_string(), content);
+        log::trace!("Documentation for {} rendered", path);
+
         Ok(())
     }
 }

@@ -119,3 +119,32 @@ pub struct DeleteRoleResponse {
     pub success: bool,
     pub role: String,
 }
+
+#[derive(Deserialize, JsonSchema, Zeroize)]
+#[zeroize(drop)]
+pub struct UpdateUserRequest {
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub password: Option<String>,
+    pub own_password: String,
+}
+
+#[derive(Deserialize, JsonSchema, Zeroize)]
+#[zeroize(drop)]
+pub struct CreateUserRequest {
+    pub name: String,
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Deserialize, JsonSchema, Zeroize)]
+#[zeroize(drop)]
+pub struct DeleteUserRequest {
+    pub own_password: String,
+}
+
+#[derive(Serialize, JsonSchema)]
+pub struct DeleteUserResponse {
+    pub email: String,
+    pub success: bool,
+}
