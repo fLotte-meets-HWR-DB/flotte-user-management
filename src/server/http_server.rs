@@ -14,14 +14,15 @@ use serde::Serialize;
 use crate::database::models::{Role, UserFullInformation, UserInformation};
 use crate::database::permissions::{
     ROLE_CREATE_PERM, ROLE_DELETE_PERM, ROLE_UPDATE_PERM, ROLE_VIEW_PERM, USER_CREATE_PERM,
-    USER_UPDATE_PERM, USER_VIEW_PERM,
+    USER_DELETE_PERM, USER_UPDATE_PERM, USER_VIEW_PERM,
 };
 use crate::database::tokens::SessionTokens;
 use crate::database::Database;
 use crate::server::documentation::RESTDocumentation;
 use crate::server::messages::{
-    CreateUserRequest, DeleteRoleResponse, ErrorMessage, FullRoleData, LoginMessage,
-    LogoutConfirmation, LogoutMessage, ModifyRoleRequest, RefreshMessage, UpdateUserRequest,
+    CreateUserRequest, DeleteRoleResponse, DeleteUserRequest, DeleteUserResponse, ErrorMessage,
+    FullRoleData, LoginMessage, LogoutConfirmation, LogoutMessage, ModifyRoleRequest,
+    RefreshMessage, UpdateUserRequest,
 };
 use crate::utils::error::DBError;
 use crate::utils::get_user_id_from_token;
@@ -141,6 +142,9 @@ impl UserHttpServer {
                 (POST) (/users/{email: String}/update) => {
                     Self::update_user(&database, request, email).unwrap_or_else(HTTPError::into)
                 },
+                (POST) (/users/{email: String}/delete) => {
+                    Self::delete_user(&database, request, email).unwrap_or_else(HTTPError::into)
+                },
                 _ => if request.method() == "OPTIONS" {
                     Response::empty_204()
                 } else {
@@ -229,6 +233,11 @@ impl UserHttpServer {
             "/users/create",
             "POST",
             "Creates a new user",
+        )?;
+        doc.add_path::<DeleteUserRequest, DeleteUserResponse>(
+            "/users/{email:String}/delete",
+            "POST",
+            "Deletes a user",
         )?;
 
         Ok(doc)
@@ -399,7 +408,7 @@ impl UserHttpServer {
         Ok(Response::json(&UserInformation::from(result)).with_status_code(201))
     }
 
-    /// Updates the information of a user
+    /// Updates the information of a user. This requires the operating user to revalidate his password
     fn update_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
         let (_, id) = validate_request_token(request, database)?;
         let message = deserialize_body::<UpdateUserRequest>(&request)?;
@@ -426,6 +435,32 @@ impl UserHttpServer {
         )?;
 
         Ok(Response::json(&record))
+    }
+
+    /// Deletes a user completely
+    fn delete_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
+        let (_, id) = validate_request_token(request, database)?;
+        let message = deserialize_body::<DeleteUserRequest>(&request)?;
+        let logged_in_user = database.users.get_user(id)?;
+
+        if !database
+            .users
+            .validate_login(&logged_in_user.email, &message.own_password)?
+        {
+            return Err(HTTPError::new(
+                "Invalid authentication data".to_string(),
+                401,
+            ));
+        }
+        if !database.users.has_permission(id, USER_DELETE_PERM)? {
+            return Err(HTTPError::new("Insufficient permissions".to_string(), 403));
+        }
+        database.users.delete_user(&email)?;
+
+        Ok(Response::json(&DeleteUserResponse {
+            success: true,
+            email,
+        }))
     }
 }
 

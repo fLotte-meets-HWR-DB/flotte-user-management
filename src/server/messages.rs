@@ -136,3 +136,15 @@ pub struct CreateUserRequest {
     pub email: String,
     pub password: String,
 }
+
+#[derive(Deserialize, JsonSchema, Zeroize)]
+#[zeroize(drop)]
+pub struct DeleteUserRequest {
+    pub own_password: String,
+}
+
+#[derive(Serialize, JsonSchema)]
+pub struct DeleteUserResponse {
+    pub email: String,
+    pub success: bool,
+}

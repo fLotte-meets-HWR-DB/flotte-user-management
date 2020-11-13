@@ -165,6 +165,18 @@ impl Users {
         Ok(users)
     }
 
+    pub fn delete_user(&self, email: &String) -> DatabaseResult<()> {
+        log::trace!("Deleting user with email {}", email);
+        let mut connection = self.pool.get()?;
+        let exists = connection.query_opt("SELECT id FROM users WHERE email = $1", &[email])?;
+        if exists.is_none() {
+            return Err(DBError::RecordDoesNotExist);
+        }
+        connection.query("DELETE FROM users WHERE email = $1", &[email])?;
+
+        Ok(())
+    }
+
     /// Creates new tokens for a user login that can be used by services
     /// that need those tokens to verify a user login
     pub fn create_tokens(
