@@ -7,15 +7,22 @@ use crate::database::{DatabaseResult, PostgresPool, Table, ADMIN_ROLE_NAME};
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-pub(crate) const VIEW_ROLE_PERMISSION: &str = "ROLE_VIEW";
-pub(crate) const CREATE_ROLE_PERMISSION: &str = "ROLE_CREATE";
-pub(crate) const UPDATE_ROLE_PERMISSION: &str = "ROLE_UPDATE";
-pub(crate) const DELETE_ROLE_PERMISSION: &str = "ROLE_DELETE";
-pub(crate) const DEFAULT_PERMISSIONS: &[(&'static str, &'static str)] = &[
-    (CREATE_ROLE_PERMISSION, "Allows the user to create roles"),
-    (UPDATE_ROLE_PERMISSION, "Allows the user to update roles"),
-    (DELETE_ROLE_PERMISSION, "Allows the user to delete roles"),
-    (VIEW_ROLE_PERMISSION, "Allows to see information for roles"),
+pub(crate) const ROLE_VIEW_PERM: &str = "ROLE_VIEW";
+pub(crate) const ROLE_CREATE_PERM: &str = "ROLE_CREATE";
+pub(crate) const ROLE_UPDATE_PERM: &str = "ROLE_UPDATE";
+pub(crate) const ROLE_DELETE_PERM: &str = "ROLE_DELETE";
+
+pub(crate) const USER_UPDATE_PERM: &str = "USER_UPDATE";
+
+pub(crate) const USER_MANAGEMENT_PERMISSIONS: &[(&'static str, &'static str)] = &[
+    (ROLE_CREATE_PERM, "Allows the user to create roles"),
+    (ROLE_UPDATE_PERM, "Allows the user to update roles"),
+    (ROLE_DELETE_PERM, "Allows the user to delete roles"),
+    (ROLE_VIEW_PERM, "Allows to see information for roles"),
+    (
+        USER_UPDATE_PERM,
+        "Allows changing the name, password and email of a user",
+    ),
 ];
 
 /// The permissions table that stores defined

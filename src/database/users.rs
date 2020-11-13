@@ -7,7 +7,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use zeroize::{Zeroize, Zeroizing};
 
-use crate::database::models::UserRecord;
+use crate::database::models::{UserInformation, UserRecord};
 use crate::database::tokens::{SessionTokens, TokenStore};
 use crate::database::user_roles::UserRoles;
 use crate::database::{DatabaseResult, PostgresPool, Table};
@@ -76,6 +76,55 @@ impl Users {
         ", &[&name, &email, &pw_hash.to_vec(), &salt.to_vec()])?;
 
         Ok(UserRecord::from_ordered_row(&row))
+    }
+
+    pub fn update_user(
+        &self,
+        old_email: String,
+        name: String,
+        email: String,
+        password: String,
+    ) -> DatabaseResult<UserInformation> {
+        let mut connection = self.pool.get()?;
+        let mut password = Zeroizing::new(password);
+        if connection
+            .query_opt("SELECT email FROM users WHERE email = $1", &[&old_email])?
+            .is_none()
+        {
+            log::trace!("Failed to create user: Record doesn't exist!");
+            return Err(DBError::RecordDoesNotExist);
+        }
+        if old_email != email
+            && connection
+                .query_opt("SELECT email FROM users WHERE email = $1", &[&old_email])?
+                .is_some()
+        {
+            log::trace!("Failed to create user: New Record exists!");
+            return Err(DBError::GenericError(format!(
+                "A user for the email {} already exists!",
+                email
+            )));
+        }
+        let salt = Zeroizing::new(create_salt());
+        let pw_hash =
+            hash_password(password.as_bytes(), &*salt).map_err(|e| DBError::GenericError(e))?;
+        password.zeroize();
+        let new_record = connection.query_one(
+            "UPDATE users SET name = $1, email = $2, password_hash = $3, salt = $4 WHERE email = $5 RETURNING *",
+            &[&name, &email, &pw_hash.to_vec(), &salt.to_vec(), &old_email],
+        )?;
+
+        Ok(serde_postgres::from_row::<UserInformation>(&new_record)?)
+    }
+
+    /// Returns information about a user by Id
+    pub fn get_user(&self, id: i32) -> DatabaseResult<UserInformation> {
+        let mut connection = self.pool.get()?;
+        let result = connection
+            .query_opt("SELECT id, name, email FROM users WHERE id = $1", &[&id])?
+            .ok_or(DBError::RecordDoesNotExist)?;
+
+        Ok(serde_postgres::from_row::<UserInformation>(&result)?)
     }
 
     /// Creates new tokens for a user login that can be used by services

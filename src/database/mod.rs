@@ -8,7 +8,7 @@ use r2d2::Pool;
 use r2d2_postgres::PostgresConnectionManager;
 
 use crate::database::models::CreatePermissionsEntry;
-use crate::database::permissions::{Permissions, DEFAULT_PERMISSIONS};
+use crate::database::permissions::{Permissions, USER_MANAGEMENT_PERMISSIONS};
 use crate::database::role_permissions::RolePermissions;
 use crate::database::roles::Roles;
 use crate::database::user_roles::UserRoles;
@@ -94,7 +94,7 @@ impl Database {
             log::debug!("Failed to create admin role {}", e.to_string())
         }
         self.permissions.create_permissions(
-            DEFAULT_PERMISSIONS
+            USER_MANAGEMENT_PERMISSIONS
                 .iter()
                 .map(|(name, description)| CreatePermissionsEntry {
                     name: name.to_string(),

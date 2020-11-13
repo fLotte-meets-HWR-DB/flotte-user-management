@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
 /// Record to store data in when retrieving rows from the users table
-#[derive(Clone, Debug, Zeroize)]
+#[derive(Clone, Debug, Zeroize, Serialize)]
 #[zeroize(drop)]
 pub struct UserRecord {
     pub id: i32,
@@ -54,4 +54,12 @@ pub struct Role {
 pub struct CreatePermissionsEntry {
     pub name: String,
     pub description: String,
+}
+
+/// Information about the user that doesn't contain any critical information
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct UserInformation {
+    pub id: i32,
+    pub name: String,
+    pub email: String,
 }

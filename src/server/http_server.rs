@@ -11,19 +11,20 @@ use rouille::{Request, Response, Server};
 use serde::export::Formatter;
 use serde::Serialize;
 
-use crate::database::models::Role;
+use crate::database::models::{Role, UserInformation};
 use crate::database::permissions::{
-    CREATE_ROLE_PERMISSION, DELETE_ROLE_PERMISSION, UPDATE_ROLE_PERMISSION, VIEW_ROLE_PERMISSION,
+    ROLE_CREATE_PERM, ROLE_DELETE_PERM, ROLE_UPDATE_PERM, ROLE_VIEW_PERM, USER_UPDATE_PERM,
 };
 use crate::database::tokens::SessionTokens;
 use crate::database::Database;
 use crate::server::documentation::RESTDocumentation;
 use crate::server::messages::{
     DeleteRoleResponse, ErrorMessage, FullRoleData, LoginMessage, LogoutConfirmation,
-    LogoutMessage, ModifyRoleRequest, RefreshMessage,
+    LogoutMessage, ModifyRoleRequest, RefreshMessage, UpdateUserRequest,
 };
 use crate::utils::error::DBError;
 use crate::utils::get_user_id_from_token;
+use serde::de::DeserializeOwned;
 
 macro_rules! require_permission {
     ($database:expr,$request:expr,$permission:expr) => {
@@ -127,6 +128,9 @@ impl UserHttpServer {
                 (POST) (/roles/{name: String}/delete) => {
                     Self::delete_role(&database, request, name).unwrap_or_else(HTTPError::into)
                 },
+                (POST) (/users/{email: String}/update) => {
+                    Self::update_user(&database, request, email).unwrap_or_else(HTTPError::into)
+                },
                 _ => if request.method() == "OPTIONS" {
                     Response::empty_204()
                 } else {
@@ -196,6 +200,11 @@ impl UserHttpServer {
             "POST",
             "Deletes a role",
         )?;
+        doc.add_path::<UpdateUserRequest, UserInformation>(
+            "/users/{email:String}/update",
+            "POST",
+            "Change user information",
+        )?;
 
         Ok(doc)
     }
@@ -241,7 +250,7 @@ impl UserHttpServer {
 
     /// Returns the data for a given role
     fn get_role(database: &Database, request: &Request, name: String) -> HTTPResult<Response> {
-        require_permission!(database, request, VIEW_ROLE_PERMISSION);
+        require_permission!(database, request, ROLE_VIEW_PERM);
         let role = database.roles.get_role(name)?;
         let permissions = database.role_permission.by_role(role.id)?;
 
@@ -254,14 +263,14 @@ impl UserHttpServer {
 
     /// Returns a list of all roles
     fn get_roles(database: &Database, request: &Request) -> HTTPResult<Response> {
-        require_permission!(database, request, VIEW_ROLE_PERMISSION);
+        require_permission!(database, request, ROLE_VIEW_PERM);
         let roles = database.roles.get_roles()?;
 
         Ok(Response::json(&roles))
     }
 
     fn create_role(database: &Database, request: &Request) -> HTTPResult<Response> {
-        require_permission!(database, request, CREATE_ROLE_PERMISSION);
+        require_permission!(database, request, ROLE_CREATE_PERM);
         let message: ModifyRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
             .map_err(|e| HTTPError::new(e.to_string(), 400))?;
         let not_existing = database
@@ -289,9 +298,9 @@ impl UserHttpServer {
     }
 
     fn update_role(database: &Database, request: &Request, name: String) -> HTTPResult<Response> {
-        require_permission!(database, request, UPDATE_ROLE_PERMISSION);
-        let message: ModifyRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
-            .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+        require_permission!(database, request, ROLE_UPDATE_PERM);
+        let message: ModifyRoleRequest = deserialize_body(&request)?;
+
         let not_existing = database
             .permissions
             .get_not_existing(&message.permissions)?;
@@ -318,13 +327,29 @@ impl UserHttpServer {
     }
 
     fn delete_role(database: &Database, request: &Request, role: String) -> HTTPResult<Response> {
-        require_permission!(database, request, DELETE_ROLE_PERMISSION);
+        require_permission!(database, request, ROLE_DELETE_PERM);
         database.roles.delete_role(&role)?;
 
         Ok(Response::json(&DeleteRoleResponse {
             success: true,
             role,
         }))
+    }
+
+    fn update_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
+        let (_, id) = validate_request_token(request, database)?;
+        let message = deserialize_body::<UpdateUserRequest>(&request)?;
+        let logged_in_user = database.users.get_user(id)?;
+
+        if logged_in_user.email != message.email {
+            require_permission!(database, request, USER_UPDATE_PERM);
+        }
+        let record =
+            database
+                .users
+                .update_user(email, message.name, message.email, message.password)?;
+
+        Ok(Response::json(&record))
     }
 }
 
@@ -338,6 +363,12 @@ fn parse_string_body(request: &Request) -> HTTPResult<String> {
         .map_err(|e| HTTPError::new(format!("Failed to parse request data {}", e), 400))?;
 
     Ok(string_body)
+}
+
+/// Deserialized a json body into the given type
+fn deserialize_body<T: DeserializeOwned>(request: &Request) -> HTTPResult<T> {
+    serde_json::from_str(parse_string_body(request)?.as_str())
+        .map_err(|e| HTTPError::new(e.to_string(), 400))
 }
 
 /// Parses and validates the request token from the http header
