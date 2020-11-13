@@ -107,4 +107,16 @@ impl Roles {
             }
         }
     }
+
+    /// Returns information for a role
+    pub fn get_role(&self, name: String) -> DatabaseResult<Role> {
+        let mut connection = self.pool.get()?;
+        let result = connection.query_opt("SELECT * FROM roles WHERE roles.name = $1", &[&name])?;
+
+        if let Some(row) = result {
+            Ok(serde_postgres::from_row::<Role>(&row)?)
+        } else {
+            Err(DBError::RecordDoesNotExist)
+        }
+    }
 }

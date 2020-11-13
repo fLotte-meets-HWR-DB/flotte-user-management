@@ -1,6 +1,7 @@
 use crate::database::models::{CreatePermissionsEntry, Permission};
 use crate::database::{DatabaseResult, PostgresPool, Table, ADMIN_ROLE_NAME};
 
+pub(crate) const VIEW_ROLE_PERMISSION: &str = "ROLE_VIEW";
 pub(crate) const CREATE_ROLE_PERMISSION: &str = "ROLE_CREATE";
 pub(crate) const UPDATE_ROLE_PERMISSION: &str = "ROLE_UPDATE";
 pub(crate) const DELETE_ROLE_PERMISSION: &str = "ROLE_DELETE";
@@ -8,6 +9,7 @@ pub(crate) const DEFAULT_PERMISSIONS: &[(&'static str, &'static str)] = &[
     (CREATE_ROLE_PERMISSION, "Allows the user to create roles"),
     (UPDATE_ROLE_PERMISSION, "Allows the user to update roles"),
     (DELETE_ROLE_PERMISSION, "Allows the user to delete roles"),
+    (VIEW_ROLE_PERMISSION, "Allows to see information for roles"),
 ];
 
 /// The permissions table that stores defined

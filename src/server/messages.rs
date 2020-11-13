@@ -101,7 +101,7 @@ pub struct LogoutConfirmation {
 }
 
 #[derive(Serialize)]
-pub struct CreateRoleResponse {
+pub struct FullRowData {
     pub id: i32,
     pub name: String,
     pub permissions: Vec<Permission>,

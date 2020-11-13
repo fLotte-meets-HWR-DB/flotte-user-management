@@ -1,8 +1,7 @@
-use crate::database::permissions::CREATE_ROLE_PERMISSION;
+use crate::database::permissions::{CREATE_ROLE_PERMISSION, VIEW_ROLE_PERMISSION};
 use crate::database::Database;
 use crate::server::messages::{
-    CreateRoleRequest, CreateRoleResponse, LoginMessage, LogoutConfirmation, LogoutMessage,
-    RefreshMessage,
+    CreateRoleRequest, FullRowData, LoginMessage, LogoutConfirmation, LogoutMessage, RefreshMessage,
 };
 use crate::utils::error::DBError;
 use crate::utils::get_user_id_from_token;
@@ -88,7 +87,10 @@ impl UserHttpServer {
                 (POST) (/logout) => {
                     Self::logout(&database, request).unwrap_or_else(HTTPError::into)
                 },
-                (POST)(/roles/create) => {
+                (GET) (/roles/{name: String}) => {
+                    Self::get_role(&database, request, name).unwrap_or_else(HTTPError::into)
+                },
+                (POST) (/roles/create) => {
                     Self::create_role(&database, request).unwrap_or_else(HTTPError::into)
                 },
                 _ => if request.method() == "OPTIONS" {
@@ -153,6 +155,22 @@ impl UserHttpServer {
         Ok(Response::json(&LogoutConfirmation { success }).with_status_code(205))
     }
 
+    /// Returns the data for a given role
+    fn get_role(database: &Database, request: &Request, name: String) -> HTTPResult<Response> {
+        let (_token, id) = validate_request_token(request, database)?;
+        if !database.users.has_permission(id, VIEW_ROLE_PERMISSION)? {
+            return Err(HTTPError::new("Insufficient permissions".to_string(), 403));
+        }
+        let role = database.roles.get_role(name)?;
+        let permissions = database.role_permission.by_role(role.id)?;
+
+        Ok(Response::json(&FullRowData {
+            id: role.id,
+            name: role.name,
+            permissions,
+        }))
+    }
+
     fn create_role(database: &Database, request: &Request) -> HTTPResult<Response> {
         let (_token, id) = validate_request_token(request, database)?;
         if !database.users.has_permission(id, CREATE_ROLE_PERMISSION)? {
@@ -166,7 +184,7 @@ impl UserHttpServer {
                 .create_role(message.name, message.description, message.permissions)?;
         let permissions = database.role_permission.by_role(role.id)?;
 
-        Ok(Response::json(&CreateRoleResponse {
+        Ok(Response::json(&FullRowData {
             id: role.id,
             permissions,
             name: role.name,
