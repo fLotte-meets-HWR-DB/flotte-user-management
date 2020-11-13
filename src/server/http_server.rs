@@ -13,6 +13,15 @@ use std::error::Error;
 use std::fmt::{self, Display};
 use std::io::Read;
 
+macro_rules! require_permission {
+    ($database:expr,$request:expr,$permission:expr) => {
+        let (_token, id) = validate_request_token($request, $database)?;
+        if !$database.users.has_permission(id, $permission)? {
+            return Err(HTTPError::new("Insufficient permissions".to_string(), 403));
+        }
+    };
+}
+
 const LISTEN_ADDRESS: &str = "HTTP_SERVER_ADDRESS";
 const DEFAULT_LISTEN_ADDRESS: &str = "127.0.0.1:8080";
 const ENV_ENABLE_CORS: &str = "ENABLE_CORS";
@@ -90,6 +99,9 @@ impl UserHttpServer {
                 (GET) (/roles/{name: String}) => {
                     Self::get_role(&database, request, name).unwrap_or_else(HTTPError::into)
                 },
+                (GET) (/roles) => {
+                    Self::get_roles(&database, request).unwrap_or_else(HTTPError::into)
+                },
                 (POST) (/roles/create) => {
                     Self::create_role(&database, request).unwrap_or_else(HTTPError::into)
                 },
@@ -157,10 +169,7 @@ impl UserHttpServer {
 
     /// Returns the data for a given role
     fn get_role(database: &Database, request: &Request, name: String) -> HTTPResult<Response> {
-        let (_token, id) = validate_request_token(request, database)?;
-        if !database.users.has_permission(id, VIEW_ROLE_PERMISSION)? {
-            return Err(HTTPError::new("Insufficient permissions".to_string(), 403));
-        }
+        require_permission!(database, request, VIEW_ROLE_PERMISSION);
         let role = database.roles.get_role(name)?;
         let permissions = database.role_permission.by_role(role.id)?;
 
@@ -171,11 +180,16 @@ impl UserHttpServer {
         }))
     }
 
+    /// Returns a list of all roles
+    fn get_roles(database: &Database, request: &Request) -> HTTPResult<Response> {
+        require_permission!(database, request, VIEW_ROLE_PERMISSION);
+        let roles = database.roles.get_roles()?;
+
+        Ok(Response::json(&roles))
+    }
+
     fn create_role(database: &Database, request: &Request) -> HTTPResult<Response> {
-        let (_token, id) = validate_request_token(request, database)?;
-        if !database.users.has_permission(id, CREATE_ROLE_PERMISSION)? {
-            return Err(HTTPError::new("Insufficient permissions".to_string(), 403));
-        }
+        require_permission!(database, request, CREATE_ROLE_PERMISSION);
         let message: CreateRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
             .map_err(|e| HTTPError::new(e.to_string(), 400))?;
         let role =

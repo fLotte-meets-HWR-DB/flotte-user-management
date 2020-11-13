@@ -119,4 +119,17 @@ impl Roles {
             Err(DBError::RecordDoesNotExist)
         }
     }
+
+    /// Returns a list of all roles
+    pub fn get_roles(&self) -> DatabaseResult<Vec<Role>> {
+        let mut connection = self.pool.get()?;
+        let results = connection.query("SELECT * FROM roles", &[])?;
+        let mut roles = Vec::new();
+
+        for row in results {
+            roles.push(serde_postgres::from_row::<Role>(&row)?);
+        }
+
+        Ok(roles)
+    }
 }
