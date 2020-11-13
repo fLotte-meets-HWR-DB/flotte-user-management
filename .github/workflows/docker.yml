@@ -24,7 +24,7 @@ jobs:
       - name: Login to Portus
         uses: docker/login-action@v1
         with:
-          registry: ghcr.io
+          registry: https://flotte-docker-registry.spdns.org/
           username: ${{ github.PORTUS_USERNAME }}
           password: ${{ secrets.PORTUS_PASSWORD }}
 
