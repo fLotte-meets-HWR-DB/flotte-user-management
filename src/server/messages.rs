@@ -120,9 +120,11 @@ pub struct DeleteRoleResponse {
     pub role: String,
 }
 
-#[derive(Deserialize, JsonSchema)]
+#[derive(Deserialize, JsonSchema, Zeroize)]
+#[zeroize(drop)]
 pub struct UpdateUserRequest {
-    pub name: String,
-    pub email: String,
-    pub password: String,
+    pub name: Option<String>,
+    pub email: Option<String>,
+    pub password: Option<String>,
+    pub own_password: String,
 }

@@ -340,14 +340,26 @@ impl UserHttpServer {
         let (_, id) = validate_request_token(request, database)?;
         let message = deserialize_body::<UpdateUserRequest>(&request)?;
         let logged_in_user = database.users.get_user(id)?;
+        if !database
+            .users
+            .validate_login(&logged_in_user.email, &message.own_password)?
+        {
+            return Err(HTTPError::new(
+                "Invalid authentication data".to_string(),
+                401,
+            ));
+        }
 
-        if logged_in_user.email != message.email {
+        if logged_in_user.email != email {
             require_permission!(database, request, USER_UPDATE_PERM);
         }
-        let record =
-            database
-                .users
-                .update_user(email, message.name, message.email, message.password)?;
+        let user_record = database.users.get_user_by_email(&email)?;
+        let record = database.users.update_user(
+            &email,
+            &message.name.clone().unwrap_or(user_record.name),
+            &message.email.clone().unwrap_or(user_record.email),
+            &message.password,
+        )?;
 
         Ok(Response::json(&record))
     }

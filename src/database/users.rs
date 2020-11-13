@@ -80,13 +80,12 @@ impl Users {
 
     pub fn update_user(
         &self,
-        old_email: String,
-        name: String,
-        email: String,
-        password: String,
+        old_email: &String,
+        name: &String,
+        email: &String,
+        password: &Option<String>,
     ) -> DatabaseResult<UserInformation> {
         let mut connection = self.pool.get()?;
-        let mut password = Zeroizing::new(password);
         if connection
             .query_opt("SELECT email FROM users WHERE email = $1", &[&old_email])?
             .is_none()
@@ -105,14 +104,20 @@ impl Users {
                 email
             )));
         }
-        let salt = Zeroizing::new(create_salt());
-        let pw_hash =
-            hash_password(password.as_bytes(), &*salt).map_err(|e| DBError::GenericError(e))?;
-        password.zeroize();
-        let new_record = connection.query_one(
-            "UPDATE users SET name = $1, email = $2, password_hash = $3, salt = $4 WHERE email = $5 RETURNING *",
-            &[&name, &email, &pw_hash.to_vec(), &salt.to_vec(), &old_email],
-        )?;
+        let new_record = if let Some(password) = password {
+            let salt = Zeroizing::new(create_salt());
+            let pw_hash =
+                hash_password(password.as_bytes(), &*salt).map_err(|e| DBError::GenericError(e))?;
+            connection.query_one(
+                "UPDATE users SET name = $1, email = $2, password_hash = $3, salt = $4 WHERE email = $5 RETURNING *",
+                &[&name, &email, &pw_hash.to_vec(), &salt.to_vec(), &old_email],
+            )?
+        } else {
+            connection.query_one(
+                "UPDATE users SET name = $1, email = $2 WHERE email = $3 RETURNING *",
+                &[&name, &email, &old_email],
+            )?
+        };
 
         Ok(serde_postgres::from_row::<UserInformation>(&new_record)?)
     }
@@ -122,6 +127,18 @@ impl Users {
         let mut connection = self.pool.get()?;
         let result = connection
             .query_opt("SELECT id, name, email FROM users WHERE id = $1", &[&id])?
+            .ok_or(DBError::RecordDoesNotExist)?;
+
+        Ok(serde_postgres::from_row::<UserInformation>(&result)?)
+    }
+
+    pub fn get_user_by_email(&self, email: &String) -> DatabaseResult<UserInformation> {
+        let mut connection = self.pool.get()?;
+        let result = connection
+            .query_opt(
+                "SELECT id, name, email FROM users WHERE email = $1",
+                &[email],
+            )?
             .ok_or(DBError::RecordDoesNotExist)?;
 
         Ok(serde_postgres::from_row::<UserInformation>(&result)?)
@@ -219,7 +236,7 @@ impl Users {
 
     /// Validates the login data of the user by creating the hash for the given password
     /// and comparing it with the database entry
-    fn validate_login(&self, email: &String, password: &String) -> DatabaseResult<bool> {
+    pub fn validate_login(&self, email: &String, password: &String) -> DatabaseResult<bool> {
         let mut connection = self.pool.get()?;
         let row = connection
             .query_opt(
