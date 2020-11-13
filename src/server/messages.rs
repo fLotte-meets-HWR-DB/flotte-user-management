@@ -113,3 +113,9 @@ pub struct FullRoleData {
     pub name: String,
     pub permissions: Vec<Permission>,
 }
+
+#[derive(Serialize, JsonSchema)]
+pub struct DeleteRoleResponse {
+    pub success: bool,
+    pub role: String,
+}

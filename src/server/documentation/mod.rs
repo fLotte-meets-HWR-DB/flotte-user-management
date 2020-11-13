@@ -32,7 +32,9 @@ impl RESTDocumentation {
     }
 
     fn landing(&self) -> String {
-        let types = self.paths.keys().fold("".to_string(), |a, b| {
+        let mut keys = self.paths.keys().cloned().collect::<Vec<String>>();
+        keys.sort();
+        let types = keys.into_iter().fold("".to_string(), |a, b| {
             format!("{}<br><a href='{}?path={2}'>{2}</a>", a, self.base_path, b)
         });
 
@@ -53,7 +55,7 @@ impl RESTDocumentation {
         let content = format!(
             "\
             <a href={}>Back</a>
-            <h1>{}: {}</h1>
+            <h1><code>{}: {}</code></h1>
             <p>{}</p>
             <h2>Input</h2>
             <code>{}</code>

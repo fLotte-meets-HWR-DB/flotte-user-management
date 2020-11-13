@@ -4,7 +4,9 @@
 
 use crate::database::models::Role;
 use crate::database::role_permissions::RolePermissions;
-use crate::database::{DatabaseResult, PostgresPool, Table, DEFAULT_ADMIN_EMAIL, ENV_ADMIN_EMAIL};
+use crate::database::{
+    DatabaseResult, PostgresPool, Table, ADMIN_ROLE_NAME, DEFAULT_ADMIN_EMAIL, ENV_ADMIN_EMAIL,
+};
 use crate::utils::error::DBError;
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -112,21 +114,35 @@ impl Roles {
 
     pub fn update_role(
         &self,
+        old_name: String,
         name: String,
         description: Option<String>,
         permissions: Vec<i32>,
     ) -> DatabaseResult<Role> {
+        if old_name == ADMIN_ROLE_NAME {
+            return Err(DBError::GenericError(
+                "The admin role can't be altered!".to_string(),
+            ));
+        }
         let permissions = HashSet::from_iter(permissions.into_iter());
         let mut connection = self.pool.get()?;
         let mut transaction = connection.transaction()?;
 
         let id: i32 = transaction
-            .query_opt("SELECT id FROM roles WHERE name = $1", &[&name])?
+            .query_opt("SELECT id FROM roles WHERE name = $1", &[&old_name])?
             .ok_or(DBError::RecordDoesNotExist)?
             .get(0);
+        let name_exists =
+            transaction.query_opt("SELECT id FROM roles WHERE name = $1", &[&name])?;
+        if name_exists.is_some() {
+            return Err(DBError::GenericError(format!(
+                "A role with the name {} already exists!",
+                name
+            )));
+        }
         let update_result = transaction.query_one(
-            "UPDATE roles SET description = $2 WHERE id = $1 RETURNING *",
-            &[&id, &description],
+            "UPDATE roles SET name = $3, description = $2 WHERE id = $1 RETURNING *",
+            &[&id, &description, &name],
         )?;
         let current_permissions = transaction
             .query(
@@ -154,5 +170,24 @@ impl Roles {
         transaction.commit()?;
 
         Ok(serde_postgres::from_row::<Role>(&update_result)?)
+    }
+
+    /// Deletes a role if it exists
+    pub fn delete_role(&self, name: &String) -> DatabaseResult<()> {
+        if name == ADMIN_ROLE_NAME {
+            return Err(DBError::GenericError(
+                "The admin role can't be altered!".to_string(),
+            ));
+        }
+        let mut connection = self.pool.get()?;
+        let result = connection.query_opt("SELECT id FROM roles WHERE name = $1", &[name])?;
+
+        if result.is_none() {
+            Err(DBError::RecordDoesNotExist)
+        } else {
+            connection.query("DELETE FROM roles WHERE name = $1", &[name])?;
+
+            Ok(())
+        }
     }
 }

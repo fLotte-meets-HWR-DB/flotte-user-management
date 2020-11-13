@@ -13,14 +13,14 @@ use serde::Serialize;
 
 use crate::database::models::Role;
 use crate::database::permissions::{
-    CREATE_ROLE_PERMISSION, UPDATE_ROLE_PERMISSION, VIEW_ROLE_PERMISSION,
+    CREATE_ROLE_PERMISSION, DELETE_ROLE_PERMISSION, UPDATE_ROLE_PERMISSION, VIEW_ROLE_PERMISSION,
 };
 use crate::database::tokens::SessionTokens;
 use crate::database::Database;
 use crate::server::documentation::RESTDocumentation;
 use crate::server::messages::{
-    ErrorMessage, FullRoleData, LoginMessage, LogoutConfirmation, LogoutMessage, ModifyRoleRequest,
-    RefreshMessage,
+    DeleteRoleResponse, ErrorMessage, FullRoleData, LoginMessage, LogoutConfirmation,
+    LogoutMessage, ModifyRoleRequest, RefreshMessage,
 };
 use crate::utils::error::DBError;
 use crate::utils::get_user_id_from_token;
@@ -121,8 +121,11 @@ impl UserHttpServer {
                 (POST) (/roles/create) => {
                     Self::create_role(&database, request).unwrap_or_else(HTTPError::into)
                 },
-                (POST) (/roles/update) => {
-                    Self::update_role(&database, request).unwrap_or_else(HTTPError::into)
+                (POST) (/roles/{name:String}/update) => {
+                    Self::update_role(&database, request, name).unwrap_or_else(HTTPError::into)
+                },
+                (POST) (/roles/{name: String}/delete) => {
+                    Self::delete_role(&database, request, name).unwrap_or_else(HTTPError::into)
                 },
                 _ => if request.method() == "OPTIONS" {
                     Response::empty_204()
@@ -184,9 +187,14 @@ impl UserHttpServer {
             "Creates a new role",
         )?;
         doc.add_path::<ModifyRoleRequest, FullRoleData>(
-            "/roles/update",
+            "/roles/{name:String}/update",
             "POST",
             "Updates an existing role",
+        )?;
+        doc.add_path::<(), DeleteRoleResponse>(
+            "/roles/{name:String}/delete",
+            "POST",
+            "Deletes a role",
         )?;
 
         Ok(doc)
@@ -280,7 +288,7 @@ impl UserHttpServer {
         .with_status_code(201))
     }
 
-    fn update_role(database: &Database, request: &Request) -> HTTPResult<Response> {
+    fn update_role(database: &Database, request: &Request, name: String) -> HTTPResult<Response> {
         require_permission!(database, request, UPDATE_ROLE_PERMISSION);
         let message: ModifyRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
             .map_err(|e| HTTPError::new(e.to_string(), 400))?;
@@ -294,16 +302,28 @@ impl UserHttpServer {
             )))
             .with_status_code(400));
         }
-        let role =
-            database
-                .roles
-                .update_role(message.name, message.description, message.permissions)?;
+        let role = database.roles.update_role(
+            name,
+            message.name,
+            message.description,
+            message.permissions,
+        )?;
         let permissions = database.role_permission.by_role(role.id)?;
 
         Ok(Response::json(&FullRoleData {
             id: role.id,
             permissions,
             name: role.name,
+        }))
+    }
+
+    fn delete_role(database: &Database, request: &Request, role: String) -> HTTPResult<Response> {
+        require_permission!(database, request, DELETE_ROLE_PERMISSION);
+        database.roles.delete_role(&role)?;
+
+        Ok(Response::json(&DeleteRoleResponse {
+            success: true,
+            role,
         }))
     }
 }
