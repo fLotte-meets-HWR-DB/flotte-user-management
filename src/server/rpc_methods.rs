@@ -1,4 +1,9 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
 #![allow(dead_code)]
+
 pub(crate) const NULL: [u8; 4] = [0x00, 0x00, 0x00, 0x00];
 pub(crate) const ERROR: [u8; 4] = [0x0F, 0x0F, 0x0F, 0x0F];
 pub(crate) const INFO: [u8; 4] = [0x49, 0x4e, 0x46, 0x4f];

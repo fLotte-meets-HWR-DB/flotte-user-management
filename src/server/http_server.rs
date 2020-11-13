@@ -1,12 +1,38 @@
-use crate::database::Database;
-use crate::server::messages::{LoginMessage, LogoutConfirmation, LogoutMessage, RefreshMessage};
-use crate::utils::error::DBError;
-use rouille::{Request, Response, Server};
-use serde::export::Formatter;
-use serde::Serialize;
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
 use std::error::Error;
 use std::fmt::{self, Display};
 use std::io::Read;
+
+use regex::Regex;
+use rouille::{Request, Response, Server};
+use serde::export::Formatter;
+use serde::Serialize;
+
+use crate::database::models::Role;
+use crate::database::permissions::{
+    CREATE_ROLE_PERMISSION, DELETE_ROLE_PERMISSION, UPDATE_ROLE_PERMISSION, VIEW_ROLE_PERMISSION,
+};
+use crate::database::tokens::SessionTokens;
+use crate::database::Database;
+use crate::server::documentation::RESTDocumentation;
+use crate::server::messages::{
+    DeleteRoleResponse, ErrorMessage, FullRoleData, LoginMessage, LogoutConfirmation,
+    LogoutMessage, ModifyRoleRequest, RefreshMessage,
+};
+use crate::utils::error::DBError;
+use crate::utils::get_user_id_from_token;
+
+macro_rules! require_permission {
+    ($database:expr,$request:expr,$permission:expr) => {
+        let (_token, id) = validate_request_token($request, $database)?;
+        if !$database.users.has_permission(id, $permission)? {
+            return Err(HTTPError::new("Insufficient permissions".to_string(), 403));
+        }
+    };
+}
 
 const LISTEN_ADDRESS: &str = "HTTP_SERVER_ADDRESS";
 const DEFAULT_LISTEN_ADDRESS: &str = "127.0.0.1:8080";
@@ -29,6 +55,7 @@ impl Display for HTTPError {
         write!(f, "{}", self.message)
     }
 }
+
 impl Error for HTTPError {}
 
 impl From<DBError> for HTTPError {
@@ -73,6 +100,9 @@ impl UserHttpServer {
         let database = Database::clone(&self.database);
         let server = Server::new(&listen_address, move |request| {
             let mut response = router!(request,
+                (GET) (/info) => {
+                    Self::info(request).unwrap_or_else(HTTPError::into)
+                },
                 (POST) (/login) => {
                     Self::login(&database, request).unwrap_or_else(HTTPError::into)
                 },
@@ -81,6 +111,21 @@ impl UserHttpServer {
                 },
                 (POST) (/logout) => {
                     Self::logout(&database, request).unwrap_or_else(HTTPError::into)
+                },
+                (GET) (/roles/{name: String}) => {
+                    Self::get_role(&database, request, name).unwrap_or_else(HTTPError::into)
+                },
+                (GET) (/roles) => {
+                    Self::get_roles(&database, request).unwrap_or_else(HTTPError::into)
+                },
+                (POST) (/roles/create) => {
+                    Self::create_role(&database, request).unwrap_or_else(HTTPError::into)
+                },
+                (POST) (/roles/{name:String}/update) => {
+                    Self::update_role(&database, request, name).unwrap_or_else(HTTPError::into)
+                },
+                (POST) (/roles/{name: String}/delete) => {
+                    Self::delete_role(&database, request, name).unwrap_or_else(HTTPError::into)
                 },
                 _ => if request.method() == "OPTIONS" {
                     Response::empty_204()
@@ -113,6 +158,56 @@ impl UserHttpServer {
         server.run()
     }
 
+    fn build_docs() -> Result<RESTDocumentation, serde_json::Error> {
+        let mut doc = RESTDocumentation::new("/info");
+        doc.add_path::<LoginMessage, SessionTokens>(
+            "/login",
+            "POST",
+            "Returns request and refresh tokens",
+        )?;
+        doc.add_path::<RefreshMessage, SessionTokens>(
+            "/new-token",
+            "POST",
+            "Returns a new request token",
+        )?;
+        doc.add_path::<LogoutMessage, LogoutConfirmation>(
+            "/logout",
+            "POST",
+            "Invalidates the refresh and request tokens",
+        )?;
+        doc.add_path::<(), FullRoleData>(
+            "/roles/{name:String}",
+            "GET",
+            "Returns the role with the given name",
+        )?;
+        doc.add_path::<(), Vec<Role>>("/roles", "GET", "Returns a list of all roles")?;
+        doc.add_path::<ModifyRoleRequest, FullRoleData>(
+            "/roles/create",
+            "POST",
+            "Creates a new role",
+        )?;
+        doc.add_path::<ModifyRoleRequest, FullRoleData>(
+            "/roles/{name:String}/update",
+            "POST",
+            "Updates an existing role",
+        )?;
+        doc.add_path::<(), DeleteRoleResponse>(
+            "/roles/{name:String}/delete",
+            "POST",
+            "Deletes a role",
+        )?;
+
+        Ok(doc)
+    }
+
+    fn info(request: &Request) -> HTTPResult<Response> {
+        lazy_static::lazy_static! {static ref DOCS: RESTDocumentation = UserHttpServer::build_docs().unwrap();}
+
+        Ok(Response::html(
+            DOCS.get(request.get_param("path").unwrap_or("/".to_string())),
+        ))
+    }
+
     /// Handles the login part of the REST api
     fn login(database: &Database, request: &Request) -> HTTPResult<Response> {
         let login_request: LoginMessage =
@@ -143,6 +238,94 @@ impl UserHttpServer {
 
         Ok(Response::json(&LogoutConfirmation { success }).with_status_code(205))
     }
+
+    /// Returns the data for a given role
+    fn get_role(database: &Database, request: &Request, name: String) -> HTTPResult<Response> {
+        require_permission!(database, request, VIEW_ROLE_PERMISSION);
+        let role = database.roles.get_role(name)?;
+        let permissions = database.role_permission.by_role(role.id)?;
+
+        Ok(Response::json(&FullRoleData {
+            id: role.id,
+            name: role.name,
+            permissions,
+        }))
+    }
+
+    /// Returns a list of all roles
+    fn get_roles(database: &Database, request: &Request) -> HTTPResult<Response> {
+        require_permission!(database, request, VIEW_ROLE_PERMISSION);
+        let roles = database.roles.get_roles()?;
+
+        Ok(Response::json(&roles))
+    }
+
+    fn create_role(database: &Database, request: &Request) -> HTTPResult<Response> {
+        require_permission!(database, request, CREATE_ROLE_PERMISSION);
+        let message: ModifyRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
+            .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+        let not_existing = database
+            .permissions
+            .get_not_existing(&message.permissions)?;
+        if !not_existing.is_empty() {
+            return Ok(Response::json(&ErrorMessage::new(format!(
+                "The permissions {:?} don't exist",
+                not_existing
+            )))
+            .with_status_code(400));
+        }
+        let role =
+            database
+                .roles
+                .create_role(message.name, message.description, message.permissions)?;
+        let permissions = database.role_permission.by_role(role.id)?;
+
+        Ok(Response::json(&FullRoleData {
+            id: role.id,
+            permissions,
+            name: role.name,
+        })
+        .with_status_code(201))
+    }
+
+    fn update_role(database: &Database, request: &Request, name: String) -> HTTPResult<Response> {
+        require_permission!(database, request, UPDATE_ROLE_PERMISSION);
+        let message: ModifyRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
+            .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+        let not_existing = database
+            .permissions
+            .get_not_existing(&message.permissions)?;
+        if !not_existing.is_empty() {
+            return Ok(Response::json(&ErrorMessage::new(format!(
+                "The permissions {:?} don't exist",
+                not_existing
+            )))
+            .with_status_code(400));
+        }
+        let role = database.roles.update_role(
+            name,
+            message.name,
+            message.description,
+            message.permissions,
+        )?;
+        let permissions = database.role_permission.by_role(role.id)?;
+
+        Ok(Response::json(&FullRoleData {
+            id: role.id,
+            permissions,
+            name: role.name,
+        }))
+    }
+
+    fn delete_role(database: &Database, request: &Request, role: String) -> HTTPResult<Response> {
+        require_permission!(database, request, DELETE_ROLE_PERMISSION);
+        database.roles.delete_role(&role)?;
+
+        Ok(Response::json(&DeleteRoleResponse {
+            success: true,
+            role,
+        }))
+    }
 }
 
 /// Parses the body of a http request into a string representation
@@ -155,4 +338,23 @@ fn parse_string_body(request: &Request) -> HTTPResult<String> {
         .map_err(|e| HTTPError::new(format!("Failed to parse request data {}", e), 400))?;
 
     Ok(string_body)
+}
+
+/// Parses and validates the request token from the http header
+fn validate_request_token(request: &Request, database: &Database) -> HTTPResult<(String, i32)> {
+    lazy_static::lazy_static! {static ref BEARER_REGEX: Regex = Regex::new(r"^[bB]earer\s+").unwrap();}
+    let token = request
+        .header("authorization")
+        .ok_or(HTTPError::new("401 Unauthorized".to_string(), 401))?;
+    let token = BEARER_REGEX.replace(token, "");
+    let (valid, _) = database.users.validate_request_token(&token.to_string())?;
+    if !valid {
+        Err(HTTPError::new("Invalid request token".to_string(), 401))
+    } else {
+        Ok((
+            token.to_string(),
+            get_user_id_from_token(&token.to_string())
+                .ok_or(HTTPError::new("Invalid request token".to_string(), 401))?,
+        ))
+    }
 }

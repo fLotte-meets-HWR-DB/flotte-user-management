@@ -1,3 +1,7 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
 use crate::database::models::Permission;
 use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
@@ -34,7 +38,7 @@ impl RolePermissions {
     pub fn by_role(&self, role_id: i32) -> DatabaseResult<Vec<Permission>> {
         let mut connection = self.pool.get()?;
         let rows = connection.query(
-            "SELECT * FROM role_permissions, permissions WHERE role_id = $1 AND role_permissions.permission_id = permissions.id", 
+            "SELECT * FROM role_permissions, permissions WHERE role_id = $1 AND role_permissions.permission_id = permissions.id",
             &[&role_id])?;
 
         serde_postgres::from_rows(&rows).map_err(DBError::from)

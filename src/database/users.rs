@@ -1,13 +1,18 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+use zeroize::{Zeroize, Zeroizing};
+
 use crate::database::models::UserRecord;
 use crate::database::tokens::{SessionTokens, TokenStore};
 use crate::database::user_roles::UserRoles;
 use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
 use crate::utils::{create_salt, hash_password};
-
-use parking_lot::Mutex;
-use std::sync::Arc;
-use zeroize::{Zeroize, Zeroizing};
 
 /// Table that stores users with their email addresses and hashed passwords
 #[derive(Clone)]
@@ -144,6 +149,23 @@ impl Users {
         } else {
             Err(DBError::GenericError("Invalid request token!".to_string()))
         }
+    }
+
+    /// Returns if the user has the given permission
+    pub fn has_permission(&self, id: i32, permission: &str) -> DatabaseResult<bool> {
+        let mut connection = self.pool.get()?;
+        let row = connection.query_opt(
+            "\
+            SELECT * FROM user_roles, role_permissions, permissions
+            WHERE user_roles.user_id = $1 
+            AND user_roles.role_id = role_permissions.role_id
+            AND role_permissions.permission_id = permissions.id
+            AND permissions.name = $2
+            LIMIT 1
+        ",
+            &[&id, &permission],
+        )?;
+        Ok(row.is_some())
     }
 
     /// Validates the login data of the user by creating the hash for the given password

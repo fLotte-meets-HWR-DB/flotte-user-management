@@ -1,13 +1,19 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
+use std::thread;
+use std::thread::Builder;
+
 use chrono::Local;
 use colored::Colorize;
 use crossbeam_utils::sync::WaitGroup;
 use env_logger::Env;
+use log::Level;
+
 use flotte_user_management::database::Database;
 use flotte_user_management::server::http_server::UserHttpServer;
 use flotte_user_management::server::user_rpc::UserRpcServer;
-use log::Level;
-use std::thread;
-use std::thread::Builder;
 
 fn main() {
     init_logger();

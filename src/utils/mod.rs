@@ -1,7 +1,12 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
+use std::panic;
+
 use bcrypt::DEFAULT_COST;
 use byteorder::{BigEndian, ByteOrder};
 use rand::Rng;
-use std::panic;
 
 pub mod error;
 

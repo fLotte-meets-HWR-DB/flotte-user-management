@@ -1,6 +1,22 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
 use crate::database::models::{CreatePermissionsEntry, Permission};
 use crate::database::{DatabaseResult, PostgresPool, Table, ADMIN_ROLE_NAME};
-use crate::utils::error::DBError;
+use std::collections::HashSet;
+use std::iter::FromIterator;
+
+pub(crate) const VIEW_ROLE_PERMISSION: &str = "ROLE_VIEW";
+pub(crate) const CREATE_ROLE_PERMISSION: &str = "ROLE_CREATE";
+pub(crate) const UPDATE_ROLE_PERMISSION: &str = "ROLE_UPDATE";
+pub(crate) const DELETE_ROLE_PERMISSION: &str = "ROLE_DELETE";
+pub(crate) const DEFAULT_PERMISSIONS: &[(&'static str, &'static str)] = &[
+    (CREATE_ROLE_PERMISSION, "Allows the user to create roles"),
+    (UPDATE_ROLE_PERMISSION, "Allows the user to update roles"),
+    (DELETE_ROLE_PERMISSION, "Allows the user to delete roles"),
+    (VIEW_ROLE_PERMISSION, "Allows to see information for roles"),
+];
 
 /// The permissions table that stores defined
 #[derive(Clone)]
@@ -14,16 +30,15 @@ impl Table for Permissions {
     }
 
     fn init(&self) -> DatabaseResult<()> {
-        self.pool
-            .get()?
-            .batch_execute(
-                "CREATE TABLE IF NOT EXISTS permissions (
+        self.pool.get()?.batch_execute(
+            "CREATE TABLE IF NOT EXISTS permissions (
                         id              SERIAL PRIMARY KEY,
                         name            VARCHAR(128) UNIQUE NOT NULL,
                         description     VARCHAR(512)
                     );",
-            )
-            .map_err(DBError::from)
+        )?;
+
+        Ok(())
     }
 }
 
@@ -72,5 +87,25 @@ impl Permissions {
         transaction.commit()?;
 
         Ok(created_permissions)
+    }
+
+    /// Returns a list of permission IDs that don't exist in the database
+    pub fn get_not_existing(&self, permissions_vec: &Vec<i32>) -> DatabaseResult<Vec<i32>> {
+        let permissions = HashSet::from_iter(permissions_vec.iter().cloned());
+        let mut connection = self.pool.get()?;
+        let rows = connection.query(
+            "SELECT id FROM permissions WHERE id = ANY($1)",
+            &[permissions_vec],
+        )?;
+        let existing_perms = rows
+            .into_iter()
+            .map(|row| -> i32 { row.get(0) })
+            .collect::<HashSet<i32>>();
+        let not_existing_perms = permissions
+            .difference(&existing_perms)
+            .cloned()
+            .collect::<Vec<i32>>();
+
+        Ok(not_existing_perms)
     }
 }

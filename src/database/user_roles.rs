@@ -1,3 +1,7 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
 use crate::database::models::Role;
 use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
