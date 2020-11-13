@@ -152,6 +152,19 @@ impl Users {
         Ok(serde_postgres::from_row::<UserInformation>(&result)?)
     }
 
+    pub fn get_users(&self) -> DatabaseResult<Vec<UserInformation>> {
+        log::trace!("Returning a list of all users...");
+        let mut connection = self.pool.get()?;
+        let results = connection.query("SELECT id, name, email FROM users", &[])?;
+        let mut users = Vec::new();
+
+        for result in results {
+            users.push(serde_postgres::from_row::<UserInformation>(&result)?);
+        }
+
+        Ok(users)
+    }
+
     /// Creates new tokens for a user login that can be used by services
     /// that need those tokens to verify a user login
     pub fn create_tokens(

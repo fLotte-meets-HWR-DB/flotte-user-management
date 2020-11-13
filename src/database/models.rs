@@ -63,3 +63,11 @@ pub struct UserInformation {
     pub name: String,
     pub email: String,
 }
+
+#[derive(Serialize, Deserialize, JsonSchema)]
+pub struct UserFullInformation {
+    pub id: i32,
+    pub name: String,
+    pub email: String,
+    pub roles: Vec<Role>,
+}

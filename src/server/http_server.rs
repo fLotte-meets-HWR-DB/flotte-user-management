@@ -11,7 +11,7 @@ use rouille::{Request, Response, Server};
 use serde::export::Formatter;
 use serde::Serialize;
 
-use crate::database::models::{Role, UserInformation};
+use crate::database::models::{Role, UserFullInformation, UserInformation};
 use crate::database::permissions::{
     ROLE_CREATE_PERM, ROLE_DELETE_PERM, ROLE_UPDATE_PERM, ROLE_VIEW_PERM, USER_UPDATE_PERM,
     USER_VIEW_PERM,
@@ -132,6 +132,9 @@ impl UserHttpServer {
                 (GET) (/users/{email: String}) => {
                     Self::get_user(&database, request, email).unwrap_or_else(HTTPError::into)
                 },
+                (GET) (/users) => {
+                    Self::get_users(&database, request).unwrap_or_else(HTTPError::into)
+                },
                 (POST) (/users/{email: String}/update) => {
                     Self::update_user(&database, request, email).unwrap_or_else(HTTPError::into)
                 },
@@ -209,10 +212,15 @@ impl UserHttpServer {
             "POST",
             "Change user information",
         )?;
-        doc.add_path::<(), UserInformation>(
+        doc.add_path::<(), UserFullInformation>(
             "/users/{email:String}",
             "GET",
             "See user information",
+        )?;
+        doc.add_path::<(), Vec<UserInformation>>(
+            "/users",
+            "GET",
+            "Returns information for all users",
         )?;
 
         Ok(doc)
@@ -278,6 +286,7 @@ impl UserHttpServer {
         Ok(Response::json(&roles))
     }
 
+    /// Creates a new role with the given permissions
     fn create_role(database: &Database, request: &Request) -> HTTPResult<Response> {
         require_permission!(database, request, ROLE_CREATE_PERM);
         let message: ModifyRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
@@ -306,6 +315,7 @@ impl UserHttpServer {
         .with_status_code(201))
     }
 
+    /// Updates information for a single role
     fn update_role(database: &Database, request: &Request, name: String) -> HTTPResult<Response> {
         require_permission!(database, request, ROLE_UPDATE_PERM);
         let message: ModifyRoleRequest = deserialize_body(&request)?;
@@ -335,6 +345,7 @@ impl UserHttpServer {
         }))
     }
 
+    /// Deletes a role from the database
     fn delete_role(database: &Database, request: &Request, role: String) -> HTTPResult<Response> {
         require_permission!(database, request, ROLE_DELETE_PERM);
         database.roles.delete_role(&role)?;
@@ -345,11 +356,26 @@ impl UserHttpServer {
         }))
     }
 
+    /// Returns information for a single user
     fn get_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
         require_permission!(database, request, USER_VIEW_PERM);
         let user = database.users.get_user_by_email(&email)?;
+        let roles = database.user_roles.by_user(user.id)?;
 
-        Ok(Response::json(&user))
+        Ok(Response::json(&UserFullInformation {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            roles,
+        }))
+    }
+
+    /// Returns a list of all users
+    fn get_users(database: &Database, request: &Request) -> HTTPResult<Response> {
+        require_permission!(database, request, USER_VIEW_PERM);
+        let users = database.users.get_users()?;
+
+        Ok(Response::json(&users))
     }
 
     fn update_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
