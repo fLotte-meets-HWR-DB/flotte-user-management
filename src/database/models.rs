@@ -71,3 +71,13 @@ pub struct UserFullInformation {
     pub email: String,
     pub roles: Vec<Role>,
 }
+
+impl From<UserRecord> for UserInformation {
+    fn from(record: UserRecord) -> Self {
+        Self {
+            id: record.id.clone(),
+            name: record.name.clone(),
+            email: record.email.clone(),
+        }
+    }
+}

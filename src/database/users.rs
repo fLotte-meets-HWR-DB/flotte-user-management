@@ -101,7 +101,7 @@ impl Users {
         }
         if old_email != email
             && connection
-                .query_opt("SELECT email FROM users WHERE email = $1", &[&old_email])?
+                .query_opt("SELECT email FROM users WHERE email = $1", &[&email])?
                 .is_some()
         {
             log::trace!("Failed to create user: New Record exists!");

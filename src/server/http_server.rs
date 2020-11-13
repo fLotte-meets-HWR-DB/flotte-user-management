@@ -13,15 +13,15 @@ use serde::Serialize;
 
 use crate::database::models::{Role, UserFullInformation, UserInformation};
 use crate::database::permissions::{
-    ROLE_CREATE_PERM, ROLE_DELETE_PERM, ROLE_UPDATE_PERM, ROLE_VIEW_PERM, USER_UPDATE_PERM,
-    USER_VIEW_PERM,
+    ROLE_CREATE_PERM, ROLE_DELETE_PERM, ROLE_UPDATE_PERM, ROLE_VIEW_PERM, USER_CREATE_PERM,
+    USER_UPDATE_PERM, USER_VIEW_PERM,
 };
 use crate::database::tokens::SessionTokens;
 use crate::database::Database;
 use crate::server::documentation::RESTDocumentation;
 use crate::server::messages::{
-    DeleteRoleResponse, ErrorMessage, FullRoleData, LoginMessage, LogoutConfirmation,
-    LogoutMessage, ModifyRoleRequest, RefreshMessage, UpdateUserRequest,
+    CreateUserRequest, DeleteRoleResponse, ErrorMessage, FullRoleData, LoginMessage,
+    LogoutConfirmation, LogoutMessage, ModifyRoleRequest, RefreshMessage, UpdateUserRequest,
 };
 use crate::utils::error::DBError;
 use crate::utils::get_user_id_from_token;
@@ -135,6 +135,9 @@ impl UserHttpServer {
                 (GET) (/users) => {
                     Self::get_users(&database, request).unwrap_or_else(HTTPError::into)
                 },
+                (POST) (/users/create) => {
+                    Self::create_user(&database, request).unwrap_or_else(HTTPError::into)
+                },
                 (POST) (/users/{email: String}/update) => {
                     Self::update_user(&database, request, email).unwrap_or_else(HTTPError::into)
                 },
@@ -221,6 +224,11 @@ impl UserHttpServer {
             "/users",
             "GET",
             "Returns information for all users",
+        )?;
+        doc.add_path::<CreateUserRequest, UserInformation>(
+            "/users/create",
+            "POST",
+            "Creates a new user",
         )?;
 
         Ok(doc)
@@ -378,6 +386,20 @@ impl UserHttpServer {
         Ok(Response::json(&users))
     }
 
+    /// Creates a new user
+    fn create_user(database: &Database, request: &Request) -> HTTPResult<Response> {
+        require_permission!(database, request, USER_CREATE_PERM);
+        let message = deserialize_body::<CreateUserRequest>(&request)?;
+        let result = database.users.create_user(
+            message.name.clone(),
+            message.email.clone(),
+            message.password.clone(),
+        )?;
+
+        Ok(Response::json(&UserInformation::from(result)).with_status_code(201))
+    }
+
+    /// Updates the information of a user
     fn update_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
         let (_, id) = validate_request_token(request, database)?;
         let message = deserialize_body::<UpdateUserRequest>(&request)?;

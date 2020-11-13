@@ -128,3 +128,11 @@ pub struct UpdateUserRequest {
     pub password: Option<String>,
     pub own_password: String,
 }
+
+#[derive(Deserialize, JsonSchema, Zeroize)]
+#[zeroize(drop)]
+pub struct CreateUserRequest {
+    pub name: String,
+    pub email: String,
+    pub password: String,
+}
