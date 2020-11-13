@@ -2,7 +2,7 @@
 
 ![Build and Test](https://github.com/fLotte-meets-HWR-DB/flotte-user-management/workflows/Build%20and%20Test/badge.svg)
 ![Cargo Audit Check](https://github.com/fLotte-meets-HWR-DB/flotte-user-management/workflows/Run%20Cargo%20Audit/badge.svg)
-![Docker Build](https://github.com/fLotte-meets-HWR-DB/flotte-user-management/workflows/Publish%20Docker%20image%20to%20GitHub%20Package%20Registry/badge.svg)
+![Build Docker Image](https://github.com/fLotte-meets-HWR-DB/flotte-user-management/workflows/Build%20Docker%20Image/badge.svg)
 
 ## Dev Requirements
 
