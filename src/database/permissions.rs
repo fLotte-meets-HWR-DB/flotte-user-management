@@ -4,6 +4,8 @@
 
 use crate::database::models::{CreatePermissionsEntry, Permission};
 use crate::database::{DatabaseResult, PostgresPool, Table, ADMIN_ROLE_NAME};
+use std::collections::HashSet;
+use std::iter::FromIterator;
 
 pub(crate) const VIEW_ROLE_PERMISSION: &str = "ROLE_VIEW";
 pub(crate) const CREATE_ROLE_PERMISSION: &str = "ROLE_CREATE";
@@ -85,5 +87,25 @@ impl Permissions {
         transaction.commit()?;
 
         Ok(created_permissions)
+    }
+
+    /// Returns a list of permission IDs that don't exist in the database
+    pub fn get_not_existing(&self, permissions_vec: &Vec<i32>) -> DatabaseResult<Vec<i32>> {
+        let permissions = HashSet::from_iter(permissions_vec.iter().cloned());
+        let mut connection = self.pool.get()?;
+        let rows = connection.query(
+            "SELECT id FROM permissions WHERE id = ANY($1)",
+            &[permissions_vec],
+        )?;
+        let existing_perms = rows
+            .into_iter()
+            .map(|row| -> i32 { row.get(0) })
+            .collect::<HashSet<i32>>();
+        let not_existing_perms = permissions
+            .difference(&existing_perms)
+            .cloned()
+            .collect::<Vec<i32>>();
+
+        Ok(not_existing_perms)
     }
 }

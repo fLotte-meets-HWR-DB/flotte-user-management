@@ -72,7 +72,7 @@ pub struct GetPermissionsRequest {
 }
 
 #[derive(Deserialize)]
-pub struct CreateRoleRequest {
+pub struct ModifyRoleRequest {
     pub name: String,
     pub description: Option<String>,
     pub permissions: Vec<i32>,
@@ -108,7 +108,7 @@ pub struct LogoutConfirmation {
 }
 
 #[derive(Serialize)]
-pub struct FullRowData {
+pub struct FullRoleData {
     pub id: i32,
     pub name: String,
     pub permissions: Vec<Permission>,

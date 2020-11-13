@@ -14,7 +14,7 @@ use serde::Deserialize;
 
 use crate::database::Database;
 use crate::server::messages::{
-    CreatePermissionsRequest, CreateRoleRequest, ErrorMessage, GetPermissionsRequest, InfoEntry,
+    CreatePermissionsRequest, ErrorMessage, GetPermissionsRequest, InfoEntry, ModifyRoleRequest,
     TokenRequest,
 };
 use crate::utils::get_user_id_from_token;
@@ -185,7 +185,7 @@ impl UserRpcServer {
     /// Handles the requests for creating new roles
     fn handle_create_role(database: Database, data: &Vec<u8>) -> RpcResult<Message> {
         log::trace!("Create Role");
-        let message = CreateRoleRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
+        let message = ModifyRoleRequest::deserialize(&mut Deserializer::new(&mut data.as_slice()))
             .map_err(|e| ErrorMessage::new(e.to_string()))?;
         let role =
             database

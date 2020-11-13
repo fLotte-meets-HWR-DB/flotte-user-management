@@ -11,10 +11,13 @@ use rouille::{Request, Response, Server};
 use serde::export::Formatter;
 use serde::Serialize;
 
-use crate::database::permissions::{CREATE_ROLE_PERMISSION, VIEW_ROLE_PERMISSION};
+use crate::database::permissions::{
+    CREATE_ROLE_PERMISSION, UPDATE_ROLE_PERMISSION, VIEW_ROLE_PERMISSION,
+};
 use crate::database::Database;
 use crate::server::messages::{
-    CreateRoleRequest, FullRowData, LoginMessage, LogoutConfirmation, LogoutMessage, RefreshMessage,
+    ErrorMessage, FullRoleData, LoginMessage, LogoutConfirmation, LogoutMessage, ModifyRoleRequest,
+    RefreshMessage,
 };
 use crate::utils::error::DBError;
 use crate::utils::get_user_id_from_token;
@@ -112,6 +115,9 @@ impl UserHttpServer {
                 (POST) (/roles/create) => {
                     Self::create_role(&database, request).unwrap_or_else(HTTPError::into)
                 },
+                (POST) (/roles/update) => {
+                    Self::update_role(&database, request).unwrap_or_else(HTTPError::into)
+                },
                 _ => if request.method() == "OPTIONS" {
                     Response::empty_204()
                 } else {
@@ -180,7 +186,7 @@ impl UserHttpServer {
         let role = database.roles.get_role(name)?;
         let permissions = database.role_permission.by_role(role.id)?;
 
-        Ok(Response::json(&FullRowData {
+        Ok(Response::json(&FullRoleData {
             id: role.id,
             name: role.name,
             permissions,
@@ -197,20 +203,57 @@ impl UserHttpServer {
 
     fn create_role(database: &Database, request: &Request) -> HTTPResult<Response> {
         require_permission!(database, request, CREATE_ROLE_PERMISSION);
-        let message: CreateRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
+        let message: ModifyRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
             .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+        let not_existing = database
+            .permissions
+            .get_not_existing(&message.permissions)?;
+        if !not_existing.is_empty() {
+            return Ok(Response::json(&ErrorMessage::new(format!(
+                "The permissions {:?} don't exist",
+                not_existing
+            )))
+            .with_status_code(400));
+        }
         let role =
             database
                 .roles
                 .create_role(message.name, message.description, message.permissions)?;
         let permissions = database.role_permission.by_role(role.id)?;
 
-        Ok(Response::json(&FullRowData {
+        Ok(Response::json(&FullRoleData {
             id: role.id,
             permissions,
             name: role.name,
         })
         .with_status_code(201))
+    }
+
+    fn update_role(database: &Database, request: &Request) -> HTTPResult<Response> {
+        require_permission!(database, request, UPDATE_ROLE_PERMISSION);
+        let message: ModifyRoleRequest = serde_json::from_str(parse_string_body(request)?.as_str())
+            .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+        let not_existing = database
+            .permissions
+            .get_not_existing(&message.permissions)?;
+        if !not_existing.is_empty() {
+            return Ok(Response::json(&ErrorMessage::new(format!(
+                "The permissions {:?} don't exist",
+                not_existing
+            )))
+            .with_status_code(400));
+        }
+        let role =
+            database
+                .roles
+                .update_role(message.name, message.description, message.permissions)?;
+        let permissions = database.role_permission.by_role(role.id)?;
+
+        Ok(Response::json(&FullRoleData {
+            id: role.id,
+            permissions,
+            name: role.name,
+        }))
     }
 }
 
