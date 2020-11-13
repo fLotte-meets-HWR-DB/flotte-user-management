@@ -85,6 +85,12 @@ impl Users {
         email: &String,
         password: &Option<String>,
     ) -> DatabaseResult<UserInformation> {
+        log::trace!(
+            "Updating user {} with new entries name: {},  email: {}",
+            old_email,
+            name,
+            email
+        );
         let mut connection = self.pool.get()?;
         if connection
             .query_opt("SELECT email FROM users WHERE email = $1", &[&old_email])?
@@ -124,6 +130,7 @@ impl Users {
 
     /// Returns information about a user by Id
     pub fn get_user(&self, id: i32) -> DatabaseResult<UserInformation> {
+        log::trace!("Looking up entry for user with id {}", id);
         let mut connection = self.pool.get()?;
         let result = connection
             .query_opt("SELECT id, name, email FROM users WHERE id = $1", &[&id])?
@@ -133,6 +140,7 @@ impl Users {
     }
 
     pub fn get_user_by_email(&self, email: &String) -> DatabaseResult<UserInformation> {
+        log::trace!("Looking up entry for user with email {}", email);
         let mut connection = self.pool.get()?;
         let result = connection
             .query_opt(
@@ -151,6 +159,7 @@ impl Users {
         email: &String,
         password: &String,
     ) -> DatabaseResult<SessionTokens> {
+        log::trace!("Creating new tokens for user with email {}", email);
         if self.validate_login(&email, password)? {
             let mut connection = self.pool.get()?;
             let row = connection.query_one("SELECT id FROM users WHERE email = $1", &[&email])?;

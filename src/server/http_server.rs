@@ -14,6 +14,7 @@ use serde::Serialize;
 use crate::database::models::{Role, UserInformation};
 use crate::database::permissions::{
     ROLE_CREATE_PERM, ROLE_DELETE_PERM, ROLE_UPDATE_PERM, ROLE_VIEW_PERM, USER_UPDATE_PERM,
+    USER_VIEW_PERM,
 };
 use crate::database::tokens::SessionTokens;
 use crate::database::Database;
@@ -128,6 +129,9 @@ impl UserHttpServer {
                 (POST) (/roles/{name: String}/delete) => {
                     Self::delete_role(&database, request, name).unwrap_or_else(HTTPError::into)
                 },
+                (GET) (/users/{email: String}) => {
+                    Self::get_user(&database, request, email).unwrap_or_else(HTTPError::into)
+                },
                 (POST) (/users/{email: String}/update) => {
                     Self::update_user(&database, request, email).unwrap_or_else(HTTPError::into)
                 },
@@ -204,6 +208,11 @@ impl UserHttpServer {
             "/users/{email:String}/update",
             "POST",
             "Change user information",
+        )?;
+        doc.add_path::<(), UserInformation>(
+            "/users/{email:String}",
+            "GET",
+            "See user information",
         )?;
 
         Ok(doc)
@@ -334,6 +343,13 @@ impl UserHttpServer {
             success: true,
             role,
         }))
+    }
+
+    fn get_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
+        require_permission!(database, request, USER_VIEW_PERM);
+        let user = database.users.get_user_by_email(&email)?;
+
+        Ok(Response::json(&user))
     }
 
     fn update_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {

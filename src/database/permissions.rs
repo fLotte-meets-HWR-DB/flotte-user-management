@@ -13,16 +13,18 @@ pub(crate) const ROLE_UPDATE_PERM: &str = "ROLE_UPDATE";
 pub(crate) const ROLE_DELETE_PERM: &str = "ROLE_DELETE";
 
 pub(crate) const USER_UPDATE_PERM: &str = "USER_UPDATE";
+pub(crate) const USER_VIEW_PERM: &str = "USER_VIEW";
 
 pub(crate) const USER_MANAGEMENT_PERMISSIONS: &[(&'static str, &'static str)] = &[
     (ROLE_CREATE_PERM, "Allows the user to create roles"),
     (ROLE_UPDATE_PERM, "Allows the user to update roles"),
     (ROLE_DELETE_PERM, "Allows the user to delete roles"),
-    (ROLE_VIEW_PERM, "Allows to see information for roles"),
+    (ROLE_VIEW_PERM, "Allows to see information of roles"),
     (
         USER_UPDATE_PERM,
         "Allows changing the name, password and email of a user",
     ),
+    (USER_VIEW_PERM, "Allows to see information of users"),
 ];
 
 /// The permissions table that stores defined
