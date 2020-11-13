@@ -1,3 +1,16 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
+use std::error::Error;
+use std::fmt::{self, Display};
+use std::io::Read;
+
+use regex::Regex;
+use rouille::{Request, Response, Server};
+use serde::export::Formatter;
+use serde::Serialize;
+
 use crate::database::permissions::{CREATE_ROLE_PERMISSION, VIEW_ROLE_PERMISSION};
 use crate::database::Database;
 use crate::server::messages::{
@@ -5,13 +18,6 @@ use crate::server::messages::{
 };
 use crate::utils::error::DBError;
 use crate::utils::get_user_id_from_token;
-use regex::Regex;
-use rouille::{Request, Response, Server};
-use serde::export::Formatter;
-use serde::Serialize;
-use std::error::Error;
-use std::fmt::{self, Display};
-use std::io::Read;
 
 macro_rules! require_permission {
     ($database:expr,$request:expr,$permission:expr) => {
@@ -43,6 +49,7 @@ impl Display for HTTPError {
         write!(f, "{}", self.message)
     }
 }
+
 impl Error for HTTPError {}
 
 impl From<DBError> for HTTPError {

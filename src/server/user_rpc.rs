@@ -1,18 +1,25 @@
-use super::rpc_methods::*;
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::thread::Builder;
+
+use msgrpc::message::Message;
+use msgrpc::server::RpcServer;
+use rmp_serde::Deserializer;
+use scheduled_thread_pool::ScheduledThreadPool;
+use serde::Deserialize;
+
 use crate::database::Database;
 use crate::server::messages::{
     CreatePermissionsRequest, CreateRoleRequest, ErrorMessage, GetPermissionsRequest, InfoEntry,
     TokenRequest,
 };
 use crate::utils::get_user_id_from_token;
-use msgrpc::message::Message;
-use msgrpc::server::RpcServer;
-use rmp_serde::Deserializer;
-use scheduled_thread_pool::ScheduledThreadPool;
-use serde::Deserialize;
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::thread::Builder;
+
+use super::rpc_methods::*;
 
 const RPC_SERVER_ADDRESS: &str = "RPC_SERVER_ADDRESS";
 const DEFAULT_SERVER_ADDRESS: &str = "127.0.0.1:5555";

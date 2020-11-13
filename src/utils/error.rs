@@ -1,7 +1,12 @@
-use r2d2::Error;
-use serde_postgres::DeError;
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
 use std::error;
 use std::fmt::{self, Display, Formatter};
+
+use r2d2::Error;
+use serde_postgres::DeError;
 
 #[derive(Debug)]
 pub enum DBError {

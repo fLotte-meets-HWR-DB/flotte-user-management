@@ -1,13 +1,18 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
+use std::sync::Arc;
+
+use parking_lot::Mutex;
+use zeroize::{Zeroize, Zeroizing};
+
 use crate::database::models::UserRecord;
 use crate::database::tokens::{SessionTokens, TokenStore};
 use crate::database::user_roles::UserRoles;
 use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
 use crate::utils::{create_salt, hash_password};
-
-use parking_lot::Mutex;
-use std::sync::Arc;
-use zeroize::{Zeroize, Zeroizing};
 
 /// Table that stores users with their email addresses and hashed passwords
 #[derive(Clone)]

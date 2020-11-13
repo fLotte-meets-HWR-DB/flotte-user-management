@@ -1,3 +1,7 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
 use postgres::Row;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;

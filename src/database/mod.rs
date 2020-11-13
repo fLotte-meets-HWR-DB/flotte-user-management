@@ -1,3 +1,12 @@
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
+use dotenv;
+use postgres::NoTls;
+use r2d2::Pool;
+use r2d2_postgres::PostgresConnectionManager;
+
 use crate::database::models::CreatePermissionsEntry;
 use crate::database::permissions::{Permissions, DEFAULT_PERMISSIONS};
 use crate::database::role_permissions::RolePermissions;
@@ -5,10 +14,6 @@ use crate::database::roles::Roles;
 use crate::database::user_roles::UserRoles;
 use crate::database::users::Users;
 use crate::utils::error::DatabaseResult;
-use dotenv;
-use postgres::NoTls;
-use r2d2::Pool;
-use r2d2_postgres::PostgresConnectionManager;
 
 pub mod models;
 pub mod permissions;

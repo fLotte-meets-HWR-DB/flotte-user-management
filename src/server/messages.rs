@@ -1,11 +1,17 @@
-use crate::database::models::{CreatePermissionsEntry, Permission};
-use crate::utils::error::DBError;
-use serde::export::Formatter;
-use serde::{Deserialize, Serialize};
+//  flotte-user-management server for managing users, roles and permissions
+//  Copyright (C) 2020 trivernis
+//  See LICENSE for more information
+
 use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
+
+use serde::export::Formatter;
+use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
+
+use crate::database::models::{CreatePermissionsEntry, Permission};
+use crate::utils::error::DBError;
 
 #[derive(Deserialize)]
 pub struct TokenRequest {
@@ -28,6 +34,7 @@ impl Display for ErrorMessage {
         write!(f, "{}", self.message)
     }
 }
+
 impl Error for ErrorMessage {}
 
 impl From<DBError> for ErrorMessage {
