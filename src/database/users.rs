@@ -7,7 +7,7 @@ use std::sync::Arc;
 use parking_lot::Mutex;
 use zeroize::{Zeroize, Zeroizing};
 
-use crate::database::models::{UserInformation, UserRecord};
+use crate::database::models::{Permission, UserInformation, UserRecord};
 use crate::database::tokens::{SessionTokens, TokenStore};
 use crate::database::user_roles::UserRoles;
 use crate::database::{DatabaseResult, PostgresPool, Table};
@@ -242,6 +242,7 @@ impl Users {
     pub fn delete_tokens(&self, request_token: &String) -> DatabaseResult<bool> {
         let mut token_store = self.token_store.lock();
         let tokens = token_store.get_by_request_token(request_token);
+
         if let Some(tokens) = tokens {
             tokens.invalidate();
 
@@ -287,5 +288,23 @@ impl Users {
             hash_password(password.as_bytes(), &*salt).map_err(|e| DBError::GenericError(e))?;
 
         Ok(pw_hash == *original_pw_hash.as_slice())
+    }
+
+    pub fn get_permissions(&self, email: &String) -> DatabaseResult<Vec<Permission>> {
+        let mut connection = self.pool.get()?;
+        let results = connection.query(
+            "\
+            SELECT permissions.id, permissions.name, permissions.description
+            FROM permissions, role_permissions, user_roles, users
+            WHERE users.email = $1
+            AND users.id = user_roles.user_id
+            AND role_permissions.role_id = user_roles.role_id
+            AND permissions.id = role_permissions.permission_id
+        ",
+            &[&email],
+        )?;
+        let permissions: Vec<Permission> = serde_postgres::from_rows(results.iter())?;
+
+        Ok(permissions)
     }
 }

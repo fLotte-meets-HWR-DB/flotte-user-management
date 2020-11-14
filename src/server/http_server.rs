@@ -11,7 +11,7 @@ use rouille::{Request, Response, Server};
 use serde::export::Formatter;
 use serde::Serialize;
 
-use crate::database::models::{Role, UserFullInformation, UserInformation};
+use crate::database::models::{Permission, Role, UserFullInformation, UserInformation};
 use crate::database::permissions::{
     ROLE_CREATE_PERM, ROLE_DELETE_PERM, ROLE_UPDATE_PERM, ROLE_VIEW_PERM, USER_CREATE_PERM,
     USER_DELETE_PERM, USER_UPDATE_PERM, USER_VIEW_PERM,
@@ -133,6 +133,9 @@ impl UserHttpServer {
                 (GET) (/users/{email: String}) => {
                     Self::get_user(&database, request, email).unwrap_or_else(HTTPError::into)
                 },
+                (GET) (/users/{email: String}/permissions) => {
+                    Self::get_user_permissions(&database, request, email).unwrap_or_else(HTTPError::into)
+                },
                 (GET) (/users) => {
                     Self::get_users(&database, request).unwrap_or_else(HTTPError::into)
                 },
@@ -238,6 +241,11 @@ impl UserHttpServer {
             "/users/{email:String}/delete",
             "POST",
             "Deletes a user",
+        )?;
+        doc.add_path::<(), Vec<Permission>>(
+            "/users/{email:String}/permissions",
+            "GET",
+            "Returns a list of permissions the user was granted",
         )?;
 
         Ok(doc)
@@ -375,7 +383,7 @@ impl UserHttpServer {
 
     /// Returns information for a single user
     fn get_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
-        require_permission!(database, request, USER_VIEW_PERM);
+        check_user_permission_or_self(request, database, &email, USER_VIEW_PERM)?;
         let user = database.users.get_user_by_email(&email)?;
         let roles = database.user_roles.by_user(user.id)?;
 
@@ -410,9 +418,10 @@ impl UserHttpServer {
 
     /// Updates the information of a user. This requires the operating user to revalidate his password
     fn update_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
-        let (_, id) = validate_request_token(request, database)?;
+        let logged_in_user =
+            check_user_permission_or_self(request, database, &email, USER_UPDATE_PERM)?;
         let message = deserialize_body::<UpdateUserRequest>(&request)?;
-        let logged_in_user = database.users.get_user(id)?;
+
         if !database
             .users
             .validate_login(&logged_in_user.email, &message.own_password)?
@@ -423,9 +432,6 @@ impl UserHttpServer {
             ));
         }
 
-        if logged_in_user.email != email {
-            require_permission!(database, request, USER_UPDATE_PERM);
-        }
         let user_record = database.users.get_user_by_email(&email)?;
         let record = database.users.update_user(
             &email,
@@ -433,15 +439,26 @@ impl UserHttpServer {
             &message.email.clone().unwrap_or(user_record.email),
             &message.password,
         )?;
+        let roles = if let Some(roles) = &message.roles {
+            require_permission!(database, request, USER_UPDATE_PERM);
+            database.user_roles.update_roles(record.id, roles.clone())?
+        } else {
+            database.user_roles.by_user(record.id)?
+        };
 
-        Ok(Response::json(&record))
+        Ok(Response::json(&UserFullInformation {
+            id: record.id,
+            email: record.email,
+            name: record.name,
+            roles,
+        }))
     }
 
     /// Deletes a user completely
     fn delete_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
-        let (_, id) = validate_request_token(request, database)?;
-        let message = deserialize_body::<DeleteUserRequest>(&request)?;
-        let logged_in_user = database.users.get_user(id)?;
+        let logged_in_user =
+            check_user_permission_or_self(request, database, &email, USER_DELETE_PERM)?;
+        let message = deserialize_body::<DeleteUserRequest>(request)?;
 
         if !database
             .users
@@ -452,15 +469,25 @@ impl UserHttpServer {
                 401,
             ));
         }
-        if !database.users.has_permission(id, USER_DELETE_PERM)? {
-            return Err(HTTPError::new("Insufficient permissions".to_string(), 403));
-        }
+
         database.users.delete_user(&email)?;
 
         Ok(Response::json(&DeleteUserResponse {
             success: true,
             email,
         }))
+    }
+
+    /// Returns a list of permissions the user has
+    fn get_user_permissions(
+        database: &Database,
+        request: &Request,
+        email: String,
+    ) -> HTTPResult<Response> {
+        check_user_permission_or_self(request, database, &email, USER_VIEW_PERM)?;
+        let permissions = database.users.get_permissions(&email)?;
+
+        Ok(Response::json(&permissions))
     }
 }
 
@@ -498,5 +525,22 @@ fn validate_request_token(request: &Request, database: &Database) -> HTTPResult<
             get_user_id_from_token(&token.to_string())
                 .ok_or(HTTPError::new("Invalid request token".to_string(), 401))?,
         ))
+    }
+}
+
+/// Returns if the user has a certain permission or queries him/herself
+fn check_user_permission_or_self(
+    request: &Request,
+    database: &Database,
+    email: &String,
+    permission: &str,
+) -> HTTPResult<UserInformation> {
+    let (_, id) = validate_request_token(request, database)?;
+    let logged_in_user = database.users.get_user(id)?;
+
+    if &logged_in_user.email != email && !database.users.has_permission(id, permission)? {
+        Err(HTTPError::new("Insufficient permission".to_string(), 403))
+    } else {
+        Ok(logged_in_user)
     }
 }
