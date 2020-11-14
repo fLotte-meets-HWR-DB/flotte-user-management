@@ -439,8 +439,19 @@ impl UserHttpServer {
             &message.email.clone().unwrap_or(user_record.email),
             &message.password,
         )?;
+        let roles = if let Some(roles) = &message.roles {
+            require_permission!(database, request, USER_UPDATE_PERM);
+            database.user_roles.update_roles(record.id, roles.clone())?
+        } else {
+            database.user_roles.by_user(record.id)?
+        };
 
-        Ok(Response::json(&record))
+        Ok(Response::json(&UserFullInformation {
+            id: record.id,
+            email: record.email,
+            name: record.name,
+            roles,
+        }))
     }
 
     /// Deletes a user completely

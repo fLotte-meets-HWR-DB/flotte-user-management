@@ -126,6 +126,7 @@ pub struct UpdateUserRequest {
     pub name: Option<String>,
     pub email: Option<String>,
     pub password: Option<String>,
+    pub roles: Option<Vec<String>>,
     pub own_password: String,
 }
 
