@@ -391,6 +391,7 @@ impl UserHttpServer {
             id: user.id,
             name: user.name,
             email: user.email,
+            attributes: user.attributes,
             roles,
         }))
     }
@@ -411,6 +412,7 @@ impl UserHttpServer {
             message.name.clone(),
             message.email.clone(),
             message.password.clone(),
+            message.attributes.clone(),
         )?;
 
         Ok(Response::json(&UserInformation::from(result)).with_status_code(201))
@@ -437,6 +439,7 @@ impl UserHttpServer {
             &email,
             &message.name.clone().unwrap_or(user_record.name),
             &message.email.clone().unwrap_or(user_record.email),
+            &message.attributes.clone().unwrap_or(user_record.attributes),
             &message.password,
         )?;
         let roles = if let Some(roles) = &message.roles {
@@ -450,6 +453,7 @@ impl UserHttpServer {
             id: record.id,
             email: record.email,
             name: record.name,
+            attributes: record.attributes,
             roles,
         }))
     }

@@ -14,6 +14,7 @@ use crate::database::roles::Roles;
 use crate::database::user_roles::UserRoles;
 use crate::database::users::Users;
 use crate::utils::error::DatabaseResult;
+use serde_json::Value;
 
 pub mod models;
 pub mod permissions;
@@ -80,8 +81,9 @@ impl Database {
             "ADMIN".to_string(),
             dotenv::var(ENV_ADMIN_EMAIL).unwrap_or(DEFAULT_ADMIN_EMAIL.to_string()),
             dotenv::var(ENV_ADMIN_PASSWORD).unwrap_or(DEFAULT_ADMIN_PASSWORD.to_string()),
+            Value::Null,
         ) {
-            log::debug!("Failed to create admin user {}", e);
+            log::debug!("Failed to create admin user: {}", e);
         } else {
             log::debug!("Admin user created successfully!");
         }

@@ -12,6 +12,7 @@ use zeroize::Zeroize;
 
 use crate::database::models::{CreatePermissionsEntry, Permission};
 use crate::utils::error::DBError;
+use serde_json::Value;
 
 #[derive(Deserialize)]
 pub struct TokenRequest {
@@ -120,22 +121,22 @@ pub struct DeleteRoleResponse {
     pub role: String,
 }
 
-#[derive(Deserialize, JsonSchema, Zeroize)]
-#[zeroize(drop)]
+#[derive(Deserialize, JsonSchema)]
 pub struct UpdateUserRequest {
     pub name: Option<String>,
     pub email: Option<String>,
     pub password: Option<String>,
     pub roles: Option<Vec<String>>,
+    pub attributes: Option<Value>,
     pub own_password: String,
 }
 
-#[derive(Deserialize, JsonSchema, Zeroize)]
-#[zeroize(drop)]
+#[derive(Deserialize, JsonSchema)]
 pub struct CreateUserRequest {
     pub name: String,
     pub email: String,
     pub password: String,
+    pub attributes: Value,
 }
 
 #[derive(Deserialize, JsonSchema, Zeroize)]
