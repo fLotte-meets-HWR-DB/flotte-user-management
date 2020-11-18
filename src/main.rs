@@ -9,7 +9,7 @@ use chrono::Local;
 use colored::Colorize;
 use crossbeam_utils::sync::WaitGroup;
 use env_logger::Env;
-use log::Level;
+use log::{Level, LevelFilter};
 
 use flotte_user_management::database::Database;
 use flotte_user_management::server::http_server::UserHttpServer;
@@ -58,6 +58,8 @@ fn main() {
 /// that also logs the thread names
 fn init_logger() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info"))
+        .filter_module("tokio_postgres", LevelFilter::Info)
+        .filter_module("tokio_util", LevelFilter::Info)
         .format(|buf, record| {
             use std::io::Write;
             let color = get_level_style(record.level());
