@@ -13,6 +13,7 @@ use crate::database::user_roles::UserRoles;
 use crate::database::{DatabaseResult, PostgresPool, Table};
 use crate::utils::error::DBError;
 use crate::utils::{create_salt, hash_password};
+use serde_json::Value;
 
 /// Table that stores users with their email addresses and hashed passwords
 #[derive(Clone)]
@@ -38,7 +39,8 @@ impl Table for Users {
             name            VARCHAR(255) NOT NULL,
             email           VARCHAR(255) UNIQUE NOT NULL,
             password_hash   BYTEA NOT NULL,
-            salt            BYTEA NOT NULL
+            salt            BYTEA NOT NULL,
+            attributes      JSONB NOT NULL DEFAULT '{}'
         );",
         )?;
 
@@ -55,6 +57,7 @@ impl Users {
         name: String,
         email: String,
         password: String,
+        attributes: Value,
     ) -> DatabaseResult<UserRecord> {
         let mut connection = self.pool.get()?;
         let mut password = Zeroizing::new(password);
@@ -72,10 +75,10 @@ impl Users {
             hash_password(password.as_bytes(), &*salt).map_err(|e| DBError::GenericError(e))?;
         password.zeroize();
         let row = connection.query_one("
-            INSERT INTO users (name, email, password_hash, salt) VALUES ($1, $2, $3, $4) RETURNING *;
-        ", &[&name, &email, &pw_hash.to_vec(), &salt.to_vec()])?;
+            INSERT INTO users (name, email, password_hash, salt, attributes) VALUES ($1, $2, $3, $4, $5) RETURNING *;
+        ", &[&name, &email, &pw_hash.to_vec(), &salt.to_vec(), &attributes])?;
 
-        Ok(UserRecord::from_ordered_row(&row))
+        Ok(UserRecord::from_row(row))
     }
 
     pub fn update_user(
@@ -83,13 +86,15 @@ impl Users {
         old_email: &String,
         name: &String,
         email: &String,
+        attributes: &Value,
         password: &Option<String>,
     ) -> DatabaseResult<UserInformation> {
         log::trace!(
-            "Updating user {} with new entries name: {},  email: {}",
+            "Updating user {} with new entries name: {},  email: {}, attributes: {:?}",
             old_email,
             name,
-            email
+            email,
+            attributes,
         );
         let mut connection = self.pool.get()?;
         if connection
@@ -115,17 +120,17 @@ impl Users {
             let pw_hash =
                 hash_password(password.as_bytes(), &*salt).map_err(|e| DBError::GenericError(e))?;
             connection.query_one(
-                "UPDATE users SET name = $1, email = $2, password_hash = $3, salt = $4 WHERE email = $5 RETURNING *",
-                &[&name, &email, &pw_hash.to_vec(), &salt.to_vec(), &old_email],
+                "UPDATE users SET name = $1, email = $2, password_hash = $3, salt = $4, attributes = $5 WHERE email = $6 RETURNING *",
+                &[&name, &email, &pw_hash.to_vec(), &salt.to_vec(), &attributes, &old_email],
             )?
         } else {
             connection.query_one(
-                "UPDATE users SET name = $1, email = $2 WHERE email = $3 RETURNING *",
-                &[&name, &email, &old_email],
+                "UPDATE users SET name = $1, email = $2, attributes = $3 WHERE email = $4 RETURNING *",
+                &[&name, &email, &attributes, &old_email],
             )?
         };
 
-        Ok(serde_postgres::from_row::<UserInformation>(&new_record)?)
+        Ok(UserInformation::from_row(new_record))
     }
 
     /// Returns information about a user by Id
@@ -133,10 +138,13 @@ impl Users {
         log::trace!("Looking up entry for user with id {}", id);
         let mut connection = self.pool.get()?;
         let result = connection
-            .query_opt("SELECT id, name, email FROM users WHERE id = $1", &[&id])?
+            .query_opt(
+                "SELECT id, name, email, attributes FROM users WHERE id = $1",
+                &[&id],
+            )?
             .ok_or(DBError::RecordDoesNotExist)?;
 
-        Ok(serde_postgres::from_row::<UserInformation>(&result)?)
+        Ok(UserInformation::from_row(result))
     }
 
     pub fn get_user_by_email(&self, email: &String) -> DatabaseResult<UserInformation> {
@@ -144,22 +152,22 @@ impl Users {
         let mut connection = self.pool.get()?;
         let result = connection
             .query_opt(
-                "SELECT id, name, email FROM users WHERE email = $1",
+                "SELECT id, name, email, attributes FROM users WHERE email = $1",
                 &[email],
             )?
             .ok_or(DBError::RecordDoesNotExist)?;
 
-        Ok(serde_postgres::from_row::<UserInformation>(&result)?)
+        Ok(UserInformation::from_row(result))
     }
 
     pub fn get_users(&self) -> DatabaseResult<Vec<UserInformation>> {
         log::trace!("Returning a list of all users...");
         let mut connection = self.pool.get()?;
-        let results = connection.query("SELECT id, name, email FROM users", &[])?;
+        let results = connection.query("SELECT id, name, email, attributes FROM users", &[])?;
         let mut users = Vec::new();
 
         for result in results {
-            users.push(serde_postgres::from_row::<UserInformation>(&result)?);
+            users.push(UserInformation::from_row(result));
         }
 
         Ok(users)

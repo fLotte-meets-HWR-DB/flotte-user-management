@@ -4,27 +4,28 @@
 
 use postgres::Row;
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroize;
+use serde_json::Value;
 
 /// Record to store data in when retrieving rows from the users table
-#[derive(Clone, Debug, Zeroize, Serialize)]
-#[zeroize(drop)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct UserRecord {
     pub id: i32,
     pub name: String,
     pub email: String,
     pub password_hash: Vec<u8>,
     pub salt: Vec<u8>,
+    pub attributes: serde_json::Value,
 }
 
 impl UserRecord {
-    pub fn from_ordered_row(row: &Row) -> Self {
+    pub fn from_row(row: Row) -> Self {
         Self {
-            id: row.get(0),
-            name: row.get(1),
-            email: row.get(2),
-            password_hash: row.get(3),
-            salt: row.get(4),
+            id: row.get("id"),
+            name: row.get("name"),
+            email: row.get("email"),
+            password_hash: row.get("password_hash"),
+            salt: row.get("salt"),
+            attributes: row.get("attributes"),
         }
     }
 }
@@ -62,6 +63,18 @@ pub struct UserInformation {
     pub id: i32,
     pub name: String,
     pub email: String,
+    pub attributes: Value,
+}
+
+impl UserInformation {
+    pub fn from_row(row: Row) -> Self {
+        Self {
+            id: row.get("id"),
+            name: row.get("name"),
+            email: row.get("email"),
+            attributes: row.get("attributes"),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, JsonSchema)]
@@ -69,15 +82,17 @@ pub struct UserFullInformation {
     pub id: i32,
     pub name: String,
     pub email: String,
+    pub attributes: Value,
     pub roles: Vec<Role>,
 }
 
 impl From<UserRecord> for UserInformation {
     fn from(record: UserRecord) -> Self {
         Self {
-            id: record.id.clone(),
-            name: record.name.clone(),
-            email: record.email.clone(),
+            id: record.id,
+            name: record.name,
+            email: record.email,
+            attributes: record.attributes,
         }
     }
 }

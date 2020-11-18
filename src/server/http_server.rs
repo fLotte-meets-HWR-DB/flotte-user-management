@@ -21,8 +21,8 @@ use crate::database::Database;
 use crate::server::documentation::RESTDocumentation;
 use crate::server::messages::{
     CreateUserRequest, DeleteRoleResponse, DeleteUserRequest, DeleteUserResponse, ErrorMessage,
-    FullRoleData, LoginMessage, LogoutConfirmation, LogoutMessage, ModifyRoleRequest,
-    RefreshMessage, UpdateUserRequest,
+    FullRoleData, LoginRequest, LoginResponse, LogoutConfirmation, LogoutMessage,
+    ModifyRoleRequest, RefreshMessage, UpdateUserRequest,
 };
 use crate::utils::error::DBError;
 use crate::utils::get_user_id_from_token;
@@ -181,7 +181,7 @@ impl UserHttpServer {
 
     fn build_docs() -> Result<RESTDocumentation, serde_json::Error> {
         let mut doc = RESTDocumentation::new("/info");
-        doc.add_path::<LoginMessage, SessionTokens>(
+        doc.add_path::<LoginRequest, LoginResponse>(
             "/login",
             "POST",
             "Returns request and refresh tokens",
@@ -261,15 +261,25 @@ impl UserHttpServer {
 
     /// Handles the login part of the REST api
     fn login(database: &Database, request: &Request) -> HTTPResult<Response> {
-        let login_request: LoginMessage =
+        let login_request: LoginRequest =
             serde_json::from_str(parse_string_body(request)?.as_str())
                 .map_err(|e| HTTPError::new(e.to_string(), 400))?;
 
         let tokens = database
             .users
             .create_tokens(&login_request.email, &login_request.password)?;
+        let user = database
+            .users
+            .get_user(get_user_id_from_token(&tokens.request_token).unwrap())?;
 
-        Ok(Response::json(&tokens).with_status_code(201))
+        Ok(Response::json(&LoginResponse {
+            request_token: tokens.request_token.clone(),
+            refresh_token: tokens.refresh_token.clone(),
+            request_ttl: tokens.request_ttl,
+            refresh_ttl: tokens.refresh_ttl,
+            user,
+        })
+        .with_status_code(201))
     }
 
     /// Handles the new token part of the rest api
@@ -391,6 +401,7 @@ impl UserHttpServer {
             id: user.id,
             name: user.name,
             email: user.email,
+            attributes: user.attributes,
             roles,
         }))
     }
@@ -411,6 +422,7 @@ impl UserHttpServer {
             message.name.clone(),
             message.email.clone(),
             message.password.clone(),
+            message.attributes.clone(),
         )?;
 
         Ok(Response::json(&UserInformation::from(result)).with_status_code(201))
@@ -437,6 +449,7 @@ impl UserHttpServer {
             &email,
             &message.name.clone().unwrap_or(user_record.name),
             &message.email.clone().unwrap_or(user_record.email),
+            &message.attributes.clone().unwrap_or(user_record.attributes),
             &message.password,
         )?;
         let roles = if let Some(roles) = &message.roles {
@@ -450,6 +463,7 @@ impl UserHttpServer {
             id: record.id,
             email: record.email,
             name: record.name,
+            attributes: record.attributes,
             roles,
         }))
     }
