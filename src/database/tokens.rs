@@ -2,7 +2,7 @@
 //  Copyright (C) 2020 trivernis
 //  See LICENSE for more information
 
-use std::cmp::{max, min};
+use std::cmp::max;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -48,8 +48,9 @@ impl SessionTokens {
     /// Creates a new session tokens instance from a token store
     /// entry
     pub fn from_entry(other: &TokenStoreEntry) -> Option<Self> {
-        let request_token = other.request_token()?;
+        let request_token = other.request_token().unwrap_or("".to_string());
         let refresh_token = other.refresh_token()?;
+
         Some(Self {
             refresh_token,
             request_token,
@@ -61,6 +62,8 @@ impl SessionTokens {
     /// Refreshes the request token
     pub fn refresh(&mut self) {
         self.request_token = base64::encode(create_user_token(self.get_user_id()));
+        self.request_ttl = REQUEST_TOKEN_EXPIRE_SECONDS as i32;
+        log::trace!("Request token refreshed.")
     }
 
     /// Returns the user id that is stored in the first four bytes of the refresh token
@@ -70,7 +73,13 @@ impl SessionTokens {
 
     /// Saves the tokens into the database
     pub fn store(&self, token_store: &mut TokenStore) -> Result<(), String> {
-        token_store.insert(&self.request_token, &self.refresh_token)
+        if let Some(tokens) = token_store.get_by_refresh_token(&self.refresh_token) {
+            tokens.set_request_token(self.request_token.clone());
+        } else {
+            token_store.insert(&self.request_token, &self.refresh_token)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -156,6 +165,7 @@ impl TokenStoreEntry {
         self.reset_timer();
         self.request_ttl = REQUEST_TOKEN_EXPIRE_SECONDS;
         self.refresh_ttl = REFRESH_TOKEN_EXPIRE_SECONDS;
+        log::trace!("TTLs reset");
 
         self.request_ttl as i32
     }
@@ -164,9 +174,20 @@ impl TokenStoreEntry {
     /// before resetting the current expiration times are stored so the ttl
     /// for both tokens won't reset
     fn reset_timer(&mut self) {
-        self.request_ttl = min(self.request_ttl(), 0) as u32;
-        self.refresh_ttl = min(self.refresh_ttl(), 0) as u32;
+        log::trace!("Resetting timer...");
+        log::trace!(
+            "req_ttl: {}, ref_ttl: {}",
+            self.request_ttl,
+            self.refresh_ttl
+        );
+        self.request_ttl = max(self.request_ttl(), 0) as u32;
+        self.refresh_ttl = max(self.refresh_ttl(), 0) as u32;
         self.ttl_start = Instant::now();
+        log::trace!(
+            "req_ttl: {}, ref_ttl: {}",
+            self.request_ttl,
+            self.refresh_ttl
+        );
     }
 
     /// Invalidates the token entry which causes it to be deleted with the next
@@ -174,6 +195,7 @@ impl TokenStoreEntry {
     pub(crate) fn invalidate(&mut self) {
         self.request_ttl = 0;
         self.refresh_ttl = 0;
+        log::trace!("Tokens invalidated.");
     }
 }
 
@@ -192,6 +214,7 @@ impl TokenStore {
     /// Returns the token store entry for a given request token
     pub fn get_by_request_token(&mut self, request_token: &String) -> Option<&mut TokenStoreEntry> {
         let user_id = get_user_id_from_token(&request_token)?;
+
         if let Some(user_tokens) = self.tokens.get_mut(&user_id) {
             user_tokens.iter_mut().find(|e| {
                 if let Some(token) = e.request_token() {
@@ -207,16 +230,20 @@ impl TokenStore {
 
     /// Returns the token store entry by the given refresh token
     pub fn get_by_refresh_token(&mut self, refresh_token: &String) -> Option<&mut TokenStoreEntry> {
+        log::trace!("Retrieving user by refresh token.");
         let user_id = get_user_id_from_token(&refresh_token)?;
+        log::trace!("UserID is {}", user_id);
+
         if let Some(user_tokens) = self.tokens.get_mut(&user_id) {
             user_tokens.iter_mut().find(|e| {
                 if let Some(token) = e.refresh_token() {
-                    &token == refresh_token
+                    token.eq(refresh_token)
                 } else {
                     false
                 }
             })
         } else {
+            log::trace!("No tokens found for user");
             None
         }
     }
@@ -231,6 +258,7 @@ impl TokenStore {
                 if let Some(ref_token) = &e.refresh_token() {
                     if ref_token == refresh_token {
                         e.set_request_token(request_token.to_string());
+                        log::debug!("New request token set for userId {}", user_id);
                     }
                 }
             });
@@ -266,7 +294,9 @@ impl TokenStore {
 
     /// Deletes all expired tokens from the store
     pub fn clear_expired(&mut self) {
+        log::trace!("Clearing expired tokens...");
         for (key, entry) in &self.tokens.clone() {
+            log::trace!("Before: {} tokens for user {}", entry.len(), key);
             self.tokens.insert(
                 *key,
                 entry
@@ -275,6 +305,12 @@ impl TokenStore {
                     .filter(|e| e.refresh_ttl() > 0)
                     .collect(),
             );
+            log::trace!(
+                "After: {} tokens for user {}",
+                self.tokens.get(key).unwrap().len(),
+                key
+            );
         }
+        log::trace!("Clearing expired tokens cleared");
     }
 }

@@ -229,12 +229,16 @@ impl Users {
     pub fn refresh_tokens(&self, refresh_token: &String) -> DatabaseResult<SessionTokens> {
         let mut token_store = self.token_store.lock();
         let tokens = token_store.get_by_refresh_token(refresh_token);
+
         if let Some(mut tokens) = tokens.and_then(|t| SessionTokens::from_entry(t)) {
+            log::trace!("Tokens found. Refreshing...");
             tokens.refresh();
             tokens.store(&mut token_store)?;
+            log::trace!("Tokens successfully refreshed.");
 
             Ok(tokens)
         } else {
+            log::trace!("No token store found for user");
             Err(DBError::GenericError("Invalid refresh token!".to_string()))
         }
     }
