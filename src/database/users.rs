@@ -40,7 +40,7 @@ impl Table for Users {
             email           VARCHAR(255) UNIQUE NOT NULL,
             password_hash   BYTEA NOT NULL,
             salt            BYTEA NOT NULL,
-            attributes      JSON NOT NULL DEFAULT '{}'
+            attributes      JSONB NOT NULL DEFAULT '{}'
         );",
         )?;
 
