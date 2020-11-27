@@ -7,6 +7,7 @@ use std::panic;
 use bcrypt::DEFAULT_COST;
 use byteorder::{BigEndian, ByteOrder};
 use rand::Rng;
+use sha2::Digest;
 
 pub mod error;
 
@@ -47,7 +48,8 @@ pub fn get_user_id_from_token(token: &String) -> Option<i32> {
 pub fn hash_password(password: &[u8], salt: &[u8]) -> Result<[u8; 24], String> {
     panic::catch_unwind(|| {
         let mut pw_hash = [0u8; 24];
-        bcrypt::bcrypt(DEFAULT_COST, salt, password, &mut pw_hash);
+        let password = sha2::Sha256::digest(password);
+        bcrypt::bcrypt(DEFAULT_COST, salt, password.as_slice(), &mut pw_hash);
         Ok(pw_hash)
     })
     .map_err(|_| "Hashing failed".to_string())?
