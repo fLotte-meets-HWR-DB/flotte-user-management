@@ -227,7 +227,7 @@ impl UserHttpServer {
             "GET",
             "See user information",
         )?;
-        doc.add_path::<(), Vec<UserInformation>>(
+        doc.add_path::<(), Vec<UserFullInformation>>(
             "/users",
             "GET",
             "Returns information for all users",
@@ -410,8 +410,20 @@ impl UserHttpServer {
     fn get_users(database: &Database, request: &Request) -> HTTPResult<Response> {
         require_permission!(database, request, USER_VIEW_PERM);
         let users = database.users.get_users()?;
+        let mut full_information = Vec::new();
 
-        Ok(Response::json(&users))
+        for user in users {
+            let roles = database.user_roles.by_user(user.id)?;
+            full_information.push(UserFullInformation {
+                id: user.id,
+                name: user.name,
+                attributes: user.attributes,
+                email: user.email,
+                roles,
+            });
+        }
+
+        Ok(Response::json(&full_information))
     }
 
     /// Creates a new user
