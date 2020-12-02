@@ -261,9 +261,10 @@ impl UserHttpServer {
 
     /// Handles the login part of the REST api
     fn login(database: &Database, request: &Request) -> HTTPResult<Response> {
-        let login_request: LoginRequest =
+        let mut login_request: LoginRequest =
             serde_json::from_str(parse_string_body(request)?.as_str())
                 .map_err(|e| HTTPError::new(e.to_string(), 400))?;
+        login_request.email.make_ascii_lowercase();
 
         let tokens = database
             .users
@@ -392,7 +393,8 @@ impl UserHttpServer {
     }
 
     /// Returns information for a single user
-    fn get_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
+    fn get_user(database: &Database, request: &Request, mut email: String) -> HTTPResult<Response> {
+        email.make_ascii_lowercase();
         check_user_permission_or_self(request, database, &email, USER_VIEW_PERM)?;
         let user = database.users.get_user_by_email(&email)?;
         let roles = database.user_roles.by_user(user.id)?;
@@ -429,7 +431,8 @@ impl UserHttpServer {
     /// Creates a new user
     fn create_user(database: &Database, request: &Request) -> HTTPResult<Response> {
         require_permission!(database, request, USER_CREATE_PERM);
-        let message = deserialize_body::<CreateUserRequest>(&request)?;
+        let mut message = deserialize_body::<CreateUserRequest>(&request)?;
+        message.email.make_ascii_lowercase();
         let result = database.users.create_user(
             message.name.clone(),
             message.email.clone(),
@@ -441,10 +444,19 @@ impl UserHttpServer {
     }
 
     /// Updates the information of a user. This requires the operating user to revalidate his password
-    fn update_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
+    fn update_user(
+        database: &Database,
+        request: &Request,
+        mut email: String,
+    ) -> HTTPResult<Response> {
+        email.make_ascii_lowercase();
         let logged_in_user =
             check_user_permission_or_self(request, database, &email, USER_UPDATE_PERM)?;
-        let message = deserialize_body::<UpdateUserRequest>(&request)?;
+        let mut message = deserialize_body::<UpdateUserRequest>(&request)?;
+
+        if let Some(email) = message.email {
+            message.email = Some(email.to_ascii_lowercase());
+        }
 
         if !database
             .users
@@ -481,7 +493,12 @@ impl UserHttpServer {
     }
 
     /// Deletes a user completely
-    fn delete_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
+    fn delete_user(
+        database: &Database,
+        request: &Request,
+        mut email: String,
+    ) -> HTTPResult<Response> {
+        email.make_ascii_lowercase();
         let logged_in_user =
             check_user_permission_or_self(request, database, &email, USER_DELETE_PERM)?;
         let message = deserialize_body::<DeleteUserRequest>(request)?;
@@ -508,8 +525,9 @@ impl UserHttpServer {
     fn get_user_permissions(
         database: &Database,
         request: &Request,
-        email: String,
+        mut email: String,
     ) -> HTTPResult<Response> {
+        email.make_ascii_lowercase();
         check_user_permission_or_self(request, database, &email, USER_VIEW_PERM)?;
         let permissions = database.users.get_permissions(&email)?;
 
