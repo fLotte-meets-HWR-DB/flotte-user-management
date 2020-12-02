@@ -261,10 +261,11 @@ impl UserHttpServer {
 
     /// Handles the login part of the REST api
     fn login(database: &Database, request: &Request) -> HTTPResult<Response> {
-        let login_request: LoginRequest =
+        let mut login_request: LoginRequest =
             serde_json::from_str(parse_string_body(request)?.as_str())
                 .map_err(|e| HTTPError::new(e.to_string(), 400))?;
 
+        login_request.email.make_ascii_lowercase();
         let tokens = database
             .users
             .create_tokens(&login_request.email, &login_request.password)?;
@@ -429,7 +430,8 @@ impl UserHttpServer {
     /// Creates a new user
     fn create_user(database: &Database, request: &Request) -> HTTPResult<Response> {
         require_permission!(database, request, USER_CREATE_PERM);
-        let message = deserialize_body::<CreateUserRequest>(&request)?;
+        let mut message = deserialize_body::<CreateUserRequest>(&request)?;
+        message.email.make_ascii_lowercase();
         let result = database.users.create_user(
             message.name.clone(),
             message.email.clone(),
@@ -442,6 +444,8 @@ impl UserHttpServer {
 
     /// Updates the information of a user. This requires the operating user to revalidate his password
     fn update_user(database: &Database, request: &Request, email: String) -> HTTPResult<Response> {
+        let mut email = email;
+        email.make_ascii_lowercase();
         let logged_in_user =
             check_user_permission_or_self(request, database, &email, USER_UPDATE_PERM)?;
         let message = deserialize_body::<UpdateUserRequest>(&request)?;
