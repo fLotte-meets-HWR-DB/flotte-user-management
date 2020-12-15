@@ -272,13 +272,20 @@ impl UserHttpServer {
         let user = database
             .users
             .get_user(get_user_id_from_token(&tokens.request_token).unwrap())?;
+        let roles = database.user_roles.by_user(user.id)?;
 
         Ok(Response::json(&LoginResponse {
             request_token: tokens.request_token.clone(),
             refresh_token: tokens.refresh_token.clone(),
             request_ttl: tokens.request_ttl,
             refresh_ttl: tokens.refresh_ttl,
-            user,
+            user: UserFullInformation {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                attributes: user.attributes,
+                roles,
+            },
         })
         .with_status_code(201))
     }

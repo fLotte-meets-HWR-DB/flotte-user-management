@@ -10,7 +10,9 @@ use serde::export::Formatter;
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroize;
 
-use crate::database::models::{CreatePermissionsEntry, Permission, UserInformation};
+use crate::database::models::{
+    CreatePermissionsEntry, Permission, UserFullInformation, UserInformation,
+};
 use crate::utils::error::DBError;
 use serde_json::Value;
 
@@ -97,7 +99,7 @@ pub struct LoginResponse {
     pub refresh_token: String,
     pub request_ttl: i32,
     pub refresh_ttl: i32,
-    pub user: UserInformation,
+    pub user: UserFullInformation,
 }
 
 #[derive(Deserialize, Zeroize, JsonSchema)]
