@@ -3,12 +3,12 @@
 //  See LICENSE for more information
 
 use std::error::Error;
+use std::fmt::Formatter;
 use std::fmt::{self, Display};
 use std::io::Read;
 
 use regex::Regex;
 use rouille::{Request, Response, Server};
-use serde::export::Formatter;
 use serde::Serialize;
 
 use crate::database::models::{Permission, Role, UserFullInformation, UserInformation};

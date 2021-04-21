@@ -6,13 +6,11 @@ use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
 
-use serde::export::Formatter;
 use serde::{Deserialize, Serialize};
+use std::fmt::Formatter;
 use zeroize::Zeroize;
 
-use crate::database::models::{
-    CreatePermissionsEntry, Permission, UserFullInformation, UserInformation,
-};
+use crate::database::models::{CreatePermissionsEntry, Permission, UserFullInformation};
 use crate::utils::error::DBError;
 use serde_json::Value;
 

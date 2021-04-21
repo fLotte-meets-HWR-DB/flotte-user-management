@@ -10,7 +10,7 @@ use zeroize::{Zeroize, Zeroizing};
 use crate::database::models::{Permission, UserInformation, UserRecord};
 use crate::database::tokens::{SessionTokens, TokenStore};
 use crate::database::user_roles::UserRoles;
-use crate::database::{DatabaseResult, PostgresPool, Table};
+use crate::database::{DatabaseResult, PostgresPool, Table, DEFAULT_ADMIN_EMAIL};
 use crate::utils::error::DBError;
 use crate::utils::{create_salt, hash_password};
 use serde_json::Value;
@@ -81,6 +81,7 @@ impl Users {
         Ok(UserRecord::from_row(row))
     }
 
+    /// Updates a user
     pub fn update_user(
         &self,
         old_email: &String,
@@ -147,6 +148,7 @@ impl Users {
         Ok(UserInformation::from_row(result))
     }
 
+    /// Returns the user record by email
     pub fn get_user_by_email(&self, email: &String) -> DatabaseResult<UserInformation> {
         log::trace!("Looking up entry for user with email {}", email);
         let mut connection = self.pool.get()?;
@@ -160,6 +162,7 @@ impl Users {
         Ok(UserInformation::from_row(result))
     }
 
+    /// Returns all users
     pub fn get_users(&self) -> DatabaseResult<Vec<UserInformation>> {
         log::trace!("Returning a list of all users...");
         let mut connection = self.pool.get()?;
@@ -173,8 +176,14 @@ impl Users {
         Ok(users)
     }
 
+    /// Deletes a user if it's not the admin user
     pub fn delete_user(&self, email: &String) -> DatabaseResult<()> {
         log::trace!("Deleting user with email {}", email);
+        if email == DEFAULT_ADMIN_EMAIL {
+            return Err(DBError::GenericError(
+                "the admin user can't be deleted".to_string(),
+            ));
+        }
         let mut connection = self.pool.get()?;
         let exists = connection.query_opt("SELECT id FROM users WHERE email = $1", &[email])?;
         if exists.is_none() {
